@@ -1,0 +1,6 @@
+[submodule "whisper.cpp"]
+	path = whisper.cpp
+	url = https://github.com/ggerganov/whisper.cpp.git
+[submodule "piper"]
+	path = piper
+	url = https://github.com/rhasspy/piper.git

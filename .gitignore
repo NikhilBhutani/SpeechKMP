@@ -1,0 +1,46 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Kotlin
+*.class
+*.log
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Android
+local.properties
+*.apk
+*.aab
+
+# iOS
+*.xcworkspace
+*.xcuserdata
+Pods/
+
+# Native builds
+*.a
+*.so
+*.dylib
+*.dll
+cmake-build-*/
+
+# Models (too large for git)
+*.gguf
+*.bin
+*.onnx
+
+# Reference/Architecture docs (internal)
+ARCHITECTURE.md
+docs/
