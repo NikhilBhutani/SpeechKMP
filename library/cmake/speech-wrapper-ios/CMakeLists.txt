@@ -23,6 +23,7 @@ option(SPEECHKMP_ENABLE_TTS "Enable Text-to-Speech (requires ONNX Runtime)" OFF)
 
 set(WHISPER_DIR "${CMAKE_SOURCE_DIR}/../../../whisper.cpp")
 set(PIPER_DIR "${CMAKE_SOURCE_DIR}/../../../piper")
+set(PIPER_PHONEMIZE_DIR "${CMAKE_SOURCE_DIR}/../../../piper-phonemize")
 set(ONNX_DIR "${CMAKE_SOURCE_DIR}/../../../onnxruntime")
 set(ESPEAK_DIR "${CMAKE_SOURCE_DIR}/../../../espeak-ng")
 set(IOS_CPP_DIR "${PROJECT_SOURCE_DIR}/../../src/iosMain/cpp")
@@ -32,11 +33,15 @@ set(IOS_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/../../src/iosMain/c_interop/include")
 #                      WHISPER.CPP (STT)
 # ═══════════════════════════════════════════════════════════════
 
-# Disable unnecessary features, enable Metal for iOS
+# Disable unnecessary features, enable Metal and Core ML for iOS
 set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GGML_METAL ON CACHE BOOL "" FORCE)
 set(GGML_ACCELERATE ON CACHE BOOL "" FORCE)
+
+# Core ML support for Apple Neural Engine acceleration
+set(WHISPER_COREML ON CACHE BOOL "" FORCE)
+set(WHISPER_COREML_ALLOW_FALLBACK ON CACHE BOOL "" FORCE)
 
 if(EXISTS ${WHISPER_DIR}/CMakeLists.txt)
     add_subdirectory(${WHISPER_DIR} whisper-build EXCLUDE_FROM_ALL)
@@ -78,8 +83,9 @@ if(WHISPER_FOUND AND TARGET whisper)
     target_link_libraries(speech_static whisper)
 endif()
 
-# iOS frameworks
+# iOS frameworks (Foundation required for CoreML)
 target_link_libraries(speech_static
+    "-framework Foundation"
     "-framework Accelerate"
     "-framework Metal"
     "-framework MetalKit"

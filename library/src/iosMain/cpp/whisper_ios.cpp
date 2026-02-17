@@ -393,8 +393,8 @@ void speech_free_string(char *ptr) {
 #ifdef SPEECHKMP_STT_ONLY
 
 bool speech_tts_init(const char *model_path, const char *config_path,
-                     int speaker_id, float speech_rate,
-                     int sample_rate, float sentence_silence) {
+                     const char *espeak_data_path, int speaker_id,
+                     float speech_rate, int sample_rate, float sentence_silence) {
     LOG_ERROR("TTS not available - built with STT only");
     return false;
 }

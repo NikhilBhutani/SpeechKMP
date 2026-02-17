@@ -91,6 +91,7 @@ void speech_stt_transcribe_stream(const float *samples, int n_samples,
  *
  * @param model_path Absolute path to .onnx model file
  * @param config_path Absolute path to model's .json config file
+ * @param espeak_data_path Absolute path to espeak-ng-data directory
  * @param speaker_id Speaker ID for multi-speaker models (-1 for default)
  * @param speech_rate Speech rate multiplier (1.0 = normal)
  * @param sample_rate Output sample rate in Hz
@@ -98,8 +99,8 @@ void speech_stt_transcribe_stream(const float *samples, int n_samples,
  * @return true if initialization succeeded
  */
 bool speech_tts_init(const char *model_path, const char *config_path,
-                     int speaker_id, float speech_rate,
-                     int sample_rate, float sentence_silence);
+                     const char *espeak_data_path, int speaker_id,
+                     float speech_rate, int sample_rate, float sentence_silence);
 
 /**
  * Synthesize text to audio samples.

@@ -48,6 +48,7 @@ actual object SpeechBridge {
         nativeInitTts(
             modelPath,
             configPath,
+            config.espeakDataPath ?: "",
             config.speakerId ?: -1,
             config.speechRate,
             config.sampleRate,
@@ -107,6 +108,7 @@ actual object SpeechBridge {
     private external fun nativeInitTts(
         modelPath: String,
         configPath: String,
+        espeakDataPath: String,
         speakerId: Int,
         speechRate: Float,
         sampleRate: Int,

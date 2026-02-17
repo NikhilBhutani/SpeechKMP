@@ -111,6 +111,7 @@ Java_com_speechkmp_SpeechBridge_nativeInitTts(
     JNIEnv *env, jobject thiz,
     jstring modelPath,
     jstring configPath,
+    jstring espeakDataPath,
     jint speakerId,
     jfloat speechRate,
     jint sampleRate,
@@ -126,6 +127,7 @@ Java_com_speechkmp_SpeechBridge_nativeInitTts(
 
     std::string model = jstring_to_string(env, modelPath);
     std::string config = jstring_to_string(env, configPath);
+    std::string espeakData = jstring_to_string(env, espeakDataPath);
 
     g_speaker_id = speakerId;
     g_speech_rate = speechRate;
@@ -135,10 +137,14 @@ Java_com_speechkmp_SpeechBridge_nativeInitTts(
     LOGI("Initializing Piper TTS");
     LOGI("Model: %s", model.c_str());
     LOGI("Config: %s", config.c_str());
+    LOGI("eSpeak data: %s", espeakData.c_str());
     LOGI("Speaker ID: %d, Rate: %.2f, Sample Rate: %d", speakerId, speechRate, sampleRate);
 
     try {
-        // Initialize piper
+        // Set espeak-ng data path (required for phonemization)
+        g_config.eSpeakDataPath = espeakData;
+
+        // Initialize piper (loads espeak-ng)
         piper::initialize(g_config);
 
         // Load voice
@@ -147,7 +153,8 @@ Java_com_speechkmp_SpeechBridge_nativeInitTts(
             sid = static_cast<piper::SpeakerId>(speakerId);
         }
 
-        piper::loadVoice(g_config, model, config, g_voice, sid);
+        // Load voice model (useCuda = false for mobile)
+        piper::loadVoice(g_config, model, config, g_voice, sid, false);
 
         // Apply configurations
         if (speechRate != 1.0f) {
@@ -186,14 +193,16 @@ Java_com_speechkmp_SpeechBridge_nativeSynthesize(
         std::vector<int16_t> audio;
         piper::SynthesisResult result;
 
-        piper::textToAudio(g_config, g_voice, input, audio, result, nullptr);
+        // Empty callback for non-streaming synthesis
+        piper::textToAudio(g_config, g_voice, input, audio, result, []() {});
 
         if (audio.empty()) {
             LOGE("Synthesis produced no audio");
             return env->NewShortArray(0);
         }
 
-        LOGD("Synthesized %zu samples", audio.size());
+        LOGD("Synthesized %zu samples (%.2f sec, RTF: %.2f)",
+             audio.size(), result.audioSeconds, result.realTimeFactor);
 
         // Create result array
         jshortArray samples = env->NewShortArray(audio.size());
@@ -231,7 +240,8 @@ Java_com_speechkmp_SpeechBridge_nativeSynthesizeToFile(
         std::vector<int16_t> audio;
         piper::SynthesisResult result;
 
-        piper::textToAudio(g_config, g_voice, input, audio, result, nullptr);
+        // Empty callback for non-streaming synthesis
+        piper::textToAudio(g_config, g_voice, input, audio, result, []() {});
 
         if (audio.empty()) {
             LOGE("Synthesis produced no audio");
@@ -244,7 +254,7 @@ Java_com_speechkmp_SpeechBridge_nativeSynthesizeToFile(
             return JNI_FALSE;
         }
 
-        LOGI("Wrote %zu samples to %s", audio.size(), path.c_str());
+        LOGI("Wrote %zu samples to %s (%.2f sec)", audio.size(), path.c_str(), result.audioSeconds);
         return JNI_TRUE;
 
     } catch (const std::exception &e) {
@@ -280,37 +290,41 @@ Java_com_speechkmp_SpeechBridge_nativeSynthesizeStream(
         std::vector<int16_t> audio;
         piper::SynthesisResult result;
 
-        // Callback for streaming audio chunks
-        auto audioCallback = [&](std::vector<int16_t> &chunk) {
+        // Synthesize all audio first (Piper doesn't support true streaming)
+        piper::textToAudio(g_config, g_voice, input, audio, result, [&]() {
+            // Progress callback - check for cancellation
             if (g_cancel_requested) {
-                return false; // Stop synthesis
+                throw std::runtime_error("Cancelled");
             }
+        });
 
-            // Create Java short array and call callback
-            jshortArray samples = env->NewShortArray(chunk.size());
-            env->SetShortArrayRegion(samples, 0, chunk.size(), chunk.data());
+        if (g_cancel_requested || audio.empty()) {
+            if (!g_cancel_requested) {
+                env->CallVoidMethod(callback, onError, env->NewStringUTF("No audio generated"));
+            }
+            return;
+        }
+
+        // Send audio in chunks (4096 samples per chunk ≈ 185ms at 22050Hz)
+        const size_t CHUNK_SIZE = 4096;
+        for (size_t i = 0; i < audio.size() && !g_cancel_requested; i += CHUNK_SIZE) {
+            size_t end = std::min(i + CHUNK_SIZE, audio.size());
+            size_t chunk_len = end - i;
+
+            jshortArray samples = env->NewShortArray(chunk_len);
+            env->SetShortArrayRegion(samples, 0, chunk_len, &audio[i]);
             env->CallVoidMethod(callback, onChunk, samples);
             env->DeleteLocalRef(samples);
-
-            return true; // Continue synthesis
-        };
-
-        piper::textToAudio(g_config, g_voice, input, audio, result, audioCallback);
+        }
 
         if (!g_cancel_requested) {
-            // Send any remaining audio
-            if (!audio.empty()) {
-                jshortArray samples = env->NewShortArray(audio.size());
-                env->SetShortArrayRegion(samples, 0, audio.size(), audio.data());
-                env->CallVoidMethod(callback, onChunk, samples);
-                env->DeleteLocalRef(samples);
-            }
-
             env->CallVoidMethod(callback, onComplete);
         }
 
     } catch (const std::exception &e) {
-        env->CallVoidMethod(callback, onError, env->NewStringUTF(e.what()));
+        if (!g_cancel_requested) {
+            env->CallVoidMethod(callback, onError, env->NewStringUTF(e.what()));
+        }
     }
 }
 

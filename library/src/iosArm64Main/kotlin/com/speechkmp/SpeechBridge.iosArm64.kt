@@ -96,6 +96,7 @@ actual object SpeechBridge {
         return speech_tts_init(
             modelPath,
             configPath,
+            config.espeakDataPath ?: "",
             config.speakerId ?: -1,
             config.speechRate,
             config.sampleRate,

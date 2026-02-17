@@ -92,8 +92,8 @@ static bool write_wav_file(const std::string &path, const std::vector<int16_t> &
 // ═══════════════════════════════════════════════════════════════
 
 bool speech_tts_init(const char *model_path, const char *config_path,
-                     int speaker_id, float speech_rate,
-                     int sample_rate, float sentence_silence) {
+                     const char *espeak_data_path, int speaker_id,
+                     float speech_rate, int sample_rate, float sentence_silence) {
 
     std::lock_guard<std::mutex> lock(g_mutex);
 
@@ -111,8 +111,13 @@ bool speech_tts_init(const char *model_path, const char *config_path,
     LOG_DEBUG("Initializing Piper TTS");
     LOG_DEBUG("Model: %s", model_path);
     LOG_DEBUG("Config: %s", config_path);
+    LOG_DEBUG("eSpeak data: %s", espeak_data_path);
 
     try {
+        // Set espeak-ng data path (required for phonemization)
+        g_config.eSpeakDataPath = espeak_data_path ? espeak_data_path : "";
+
+        // Initialize piper (loads espeak-ng)
         piper::initialize(g_config);
 
         std::optional<piper::SpeakerId> sid;
@@ -120,7 +125,8 @@ bool speech_tts_init(const char *model_path, const char *config_path,
             sid = static_cast<piper::SpeakerId>(speaker_id);
         }
 
-        piper::loadVoice(g_config, model_path, config_path, g_voice, sid);
+        // Load voice model (useCuda = false for iOS)
+        piper::loadVoice(g_config, model_path, config_path, g_voice, sid, false);
 
         if (speech_rate != 1.0f) {
             g_voice.synthesisConfig.lengthScale = 1.0f / speech_rate;
@@ -152,7 +158,8 @@ int16_t *speech_tts_synthesize(const char *text, int *out_length) {
         std::vector<int16_t> audio;
         piper::SynthesisResult result;
 
-        piper::textToAudio(g_config, g_voice, text, audio, result, nullptr);
+        // Empty callback for non-streaming synthesis
+        piper::textToAudio(g_config, g_voice, text, audio, result, []() {});
 
         if (audio.empty()) {
             LOG_ERROR("Synthesis produced no audio");
@@ -160,13 +167,13 @@ int16_t *speech_tts_synthesize(const char *text, int *out_length) {
             return nullptr;
         }
 
-        LOG_DEBUG("Synthesized %zu samples", audio.size());
+        LOG_DEBUG("Synthesized %zu samples (%.2f sec)", audio.size(), result.audioSeconds);
 
         // Allocate and copy
         int16_t *samples = static_cast<int16_t*>(malloc(audio.size() * sizeof(int16_t)));
         if (samples) {
             memcpy(samples, audio.data(), audio.size() * sizeof(int16_t));
-            *out_length = audio.size();
+            *out_length = static_cast<int>(audio.size());
         } else {
             *out_length = 0;
         }
@@ -194,7 +201,8 @@ bool speech_tts_synthesize_to_file(const char *text, const char *output_path) {
         std::vector<int16_t> audio;
         piper::SynthesisResult result;
 
-        piper::textToAudio(g_config, g_voice, text, audio, result, nullptr);
+        // Empty callback for non-streaming synthesis
+        piper::textToAudio(g_config, g_voice, text, audio, result, []() {});
 
         if (audio.empty()) {
             LOG_ERROR("Synthesis produced no audio");
@@ -206,7 +214,7 @@ bool speech_tts_synthesize_to_file(const char *text, const char *output_path) {
             return false;
         }
 
-        LOG_DEBUG("Wrote %zu samples to %s", audio.size(), output_path);
+        LOG_DEBUG("Wrote %zu samples to %s (%.2f sec)", audio.size(), output_path, result.audioSeconds);
         return true;
 
     } catch (const std::exception &e) {
@@ -234,33 +242,40 @@ void speech_tts_synthesize_stream(const char *text,
         std::vector<int16_t> audio;
         piper::SynthesisResult result;
 
-        auto audioCallback = [&](std::vector<int16_t> &chunk) {
+        // Synthesize all audio first (Piper doesn't support true streaming)
+        piper::textToAudio(g_config, g_voice, text, audio, result, [&]() {
+            // Progress callback - check for cancellation
             if (g_cancel_requested) {
-                return false;
+                throw std::runtime_error("Cancelled");
             }
+        });
 
-            if (on_chunk && !chunk.empty()) {
-                on_chunk(chunk.data(), chunk.size(), user);
+        if (g_cancel_requested || audio.empty()) {
+            if (!g_cancel_requested && on_error) {
+                on_error("No audio generated", user);
             }
+            return;
+        }
 
-            return true;
-        };
+        // Send audio in chunks (4096 samples per chunk ≈ 185ms at 22050Hz)
+        const size_t CHUNK_SIZE = 4096;
+        for (size_t i = 0; i < audio.size() && !g_cancel_requested; i += CHUNK_SIZE) {
+            size_t end = std::min(i + CHUNK_SIZE, audio.size());
+            size_t chunk_len = end - i;
 
-        piper::textToAudio(g_config, g_voice, text, audio, result, audioCallback);
-
-        if (!g_cancel_requested) {
-            // Send remaining audio
-            if (on_chunk && !audio.empty()) {
-                on_chunk(audio.data(), audio.size(), user);
-            }
-
-            if (on_complete) {
-                on_complete(user);
+            if (on_chunk) {
+                on_chunk(&audio[i], static_cast<int>(chunk_len), user);
             }
         }
 
+        if (!g_cancel_requested && on_complete) {
+            on_complete(user);
+        }
+
     } catch (const std::exception &e) {
-        if (on_error) on_error(e.what(), user);
+        if (!g_cancel_requested && on_error) {
+            on_error(e.what(), user);
+        }
     }
 }
 

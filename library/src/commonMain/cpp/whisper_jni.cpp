@@ -517,3 +517,64 @@ Java_com_speechkmp_SpeechBridge_nativeShutdownStt(
         g_ctx = nullptr;
     }
 }
+
+// ═══════════════════════════════════════════════════════════════
+//                    TTS STUBS (when TTS disabled)
+// ═══════════════════════════════════════════════════════════════
+
+#ifdef SPEECHKMP_STT_ONLY
+
+JNIEXPORT jboolean JNICALL
+Java_com_speechkmp_SpeechBridge_nativeInitTts(
+    JNIEnv *env, jobject thiz,
+    jstring modelPath,
+    jstring configPath,
+    jstring espeakDataPath,
+    jint speakerId,
+    jfloat speechRate,
+    jint sampleRate,
+    jfloat sentenceSilence) {
+    LOGE("TTS not available - built with STT only");
+    return JNI_FALSE;
+}
+
+JNIEXPORT jshortArray JNICALL
+Java_com_speechkmp_SpeechBridge_nativeSynthesize(
+    JNIEnv *env, jobject thiz,
+    jstring text) {
+    LOGE("TTS not available - built with STT only");
+    return env->NewShortArray(0);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_speechkmp_SpeechBridge_nativeSynthesizeToFile(
+    JNIEnv *env, jobject thiz,
+    jstring text,
+    jstring outputPath) {
+    LOGE("TTS not available - built with STT only");
+    return JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL
+Java_com_speechkmp_SpeechBridge_nativeSynthesizeStream(
+    JNIEnv *env, jobject thiz,
+    jstring text,
+    jobject callback) {
+    jclass cbClass = env->GetObjectClass(callback);
+    jmethodID onError = env->GetMethodID(cbClass, "onError", "(Ljava/lang/String;)V");
+    env->CallVoidMethod(callback, onError, env->NewStringUTF("TTS not available - built with STT only"));
+}
+
+JNIEXPORT void JNICALL
+Java_com_speechkmp_SpeechBridge_nativeCancelTts(
+    JNIEnv *env, jobject thiz) {
+    // No-op when TTS disabled
+}
+
+JNIEXPORT void JNICALL
+Java_com_speechkmp_SpeechBridge_nativeShutdownTts(
+    JNIEnv *env, jobject thiz) {
+    // No-op when TTS disabled
+}
+
+#endif // SPEECHKMP_STT_ONLY

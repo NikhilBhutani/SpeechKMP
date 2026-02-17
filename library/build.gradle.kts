@@ -3,6 +3,7 @@ import com.android.build.api.dsl.LibraryExtension
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlinx.serialization)
     id("org.jetbrains.compose")
     id("com.android.library")
     id("maven-publish")
@@ -134,7 +135,7 @@ kotlin {
                     "$libPath/libspeech_static.a"
                 )
                 // Add whisper libs if they exist
-                val whisperLib = "$libPath/whisper-build/libwhisper.a"
+                val whisperLib = "$libPath/whisper-build/src/libwhisper.a"
                 if (file(whisperLib).exists()) libs.add(whisperLib)
 
                 // Add ggml libs if they exist
@@ -142,8 +143,13 @@ kotlin {
                     "$libPath/whisper-build/ggml/src/libggml.a",
                     "$libPath/whisper-build/ggml/src/libggml-base.a",
                     "$libPath/whisper-build/ggml/src/libggml-cpu.a",
-                    "$libPath/whisper-build/ggml/src/ggml-metal/libggml-metal.a"
+                    "$libPath/whisper-build/ggml/src/ggml-metal/libggml-metal.a",
+                    "$libPath/whisper-build/ggml/src/ggml-blas/libggml-blas.a"
                 ).forEach { if (file(it).exists()) libs.add(it) }
+
+                // Add whisper.coreml lib if it exists (for Apple Neural Engine)
+                val coremlLib = "$libPath/whisper-build/src/libwhisper.coreml.a"
+                if (file(coremlLib).exists()) libs.add(coremlLib)
 
                 // Add piper libs if they exist
                 val piperLib = "$libPath/piper-build/libpiper.a"
@@ -248,9 +254,23 @@ kotlin {
             implementation(libs.kotlin.stdlib)
             implementation(compose.runtime)
             implementation(compose.ui)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
+            implementation(libs.kotlinx.serialization.json)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+        }
+        androidMain.dependencies {
+            implementation(libs.ktor.client.okhttp)
+        }
+        jvmMain.dependencies {
+            implementation(libs.ktor.client.okhttp)
+        }
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
         }
     }
 }

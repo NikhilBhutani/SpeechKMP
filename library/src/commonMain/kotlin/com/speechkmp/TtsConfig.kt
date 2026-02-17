@@ -22,5 +22,11 @@ data class TtsConfig(
     /**
      * Seconds of silence between sentences.
      */
-    val sentenceSilence: Float = 0.2f
+    val sentenceSilence: Float = 0.2f,
+
+    /**
+     * Path to espeak-ng-data directory.
+     * Required for phonemization. On Android/iOS this is extracted from assets.
+     */
+    val espeakDataPath: String? = null
 )
