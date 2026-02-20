@@ -45,3 +45,7 @@ cmake-build-*/
 ARCHITECTURE.md
 docs/
 CustomImpl.md
+
+# Build cache
+.kotlin/
+.cxx/

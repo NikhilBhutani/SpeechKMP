@@ -7,6 +7,6 @@ plugins {
 }
 
 allprojects {
-    group = "com.speechkmp"
+    group = "ai.onmobi"
     version = System.getenv("RELEASE_VERSION") ?: "0.1.0-SNAPSHOT"
 }

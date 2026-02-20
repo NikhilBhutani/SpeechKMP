@@ -1,4 +1,4 @@
-rootProject.name = "SpeechKMP"
+rootProject.name = "deviceai-runtime-kmp"
 
 pluginManagement {
     repositories {
@@ -15,5 +15,5 @@ dependencyResolutionManagement {
     }
 }
 
-include(":library")
-include(":sample:composeApp")
+include(":runtime-speech")
+include(":samples:composeApp")

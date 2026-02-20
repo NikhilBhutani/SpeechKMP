@@ -1,4 +1,4 @@
-# SpeechKMP
+# deviceai-runtime-kmp
 
 Kotlin Multiplatform library for on-device Speech-to-Text (STT) and Text-to-Speech (TTS).
 
@@ -136,8 +136,8 @@ Download from [Hugging Face](https://huggingface.co/rhasspy/piper-voices):
 
 1. Clone the repository with submodules:
 ```bash
-git clone --recursive https://github.com/example/speechkmp.git
-cd speechkmp
+git clone --recursive https://github.com/NikhilBhutani/deviceai-runtime-kmp.git
+cd deviceai-runtime-kmp
 ```
 
 2. Add the native library submodules:
