@@ -6,12 +6,11 @@ on:
 
 jobs:
   publish:
-    name: Publish to GitHub Packages
+    name: Publish to Maven Central
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
-      packages: write
 
     steps:
       - name: Checkout (with submodules)
@@ -40,8 +39,11 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts') }}
 
-      - name: Publish to GitHub Packages
-        run: ./gradlew :runtime-speech:publishAllPublicationsToGitHubPackagesRepository --no-daemon
+      - name: Publish to Maven Central
+        run: ./gradlew :runtime-speech:publishAllPublicationsToMavenCentralRepository --no-daemon
         env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ github.event.release.tag_name }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}

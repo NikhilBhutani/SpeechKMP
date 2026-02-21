@@ -6,8 +6,7 @@ plugins {
     alias(libs.plugins.kotlinx.serialization)
     id("org.jetbrains.compose")
     id("com.android.library")
-    id("maven-publish")
-    id("signing")
+    alias(libs.plugins.vanniktech.publish)
 }
 
 group = "com.nikhilbhutani"
@@ -329,72 +328,35 @@ extensions.configure<LibraryExtension> {
         }
     }
 
-    publishing {
-        singleVariant("release") {
-            withSourcesJar()
-            withJavadocJar()
-        }
-    }
 }
 
-// Publishing configuration
-publishing {
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/NikhilBhutani/deviceai-runtime-kmp")
-            credentials {
-                username = (findProperty("gpr.user") as String?) ?: System.getenv("GITHUB_ACTOR")
-                password = (findProperty("gpr.key") as String?) ?: System.getenv("GITHUB_TOKEN")
+mavenPublishing {
+    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
+    signAllPublications()
+
+    coordinates("com.nikhilbhutani", "runtime-speech", version.toString())
+
+    pom {
+        name.set("DeviceAI Runtime — Speech")
+        description.set("Kotlin Multiplatform library for on-device Speech-to-Text and Text-to-Speech")
+        url.set("https://github.com/NikhilBhutani/deviceai-runtime-kmp")
+        licenses {
+            license {
+                name.set("Apache-2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0")
             }
         }
-    }
-    publications.withType<MavenPublication>().configureEach {
-        groupId = "com.nikhilbhutani"
-        artifactId = artifactId.replace("runtime-speech", "runtime-speech")
-        pom {
-            name.set("DeviceAI Runtime — Speech")
-            description.set("Kotlin Multiplatform library for on-device Speech-to-Text and Text-to-Speech")
+        developers {
+            developer {
+                id.set("nikhilbhutani")
+                name.set("Nikhil Bhutani")
+                url.set("https://github.com/NikhilBhutani")
+            }
+        }
+        scm {
             url.set("https://github.com/NikhilBhutani/deviceai-runtime-kmp")
-            licenses {
-                license {
-                    name.set("Apache-2.0")
-                    url.set("https://www.apache.org/licenses/LICENSE-2.0")
-                }
-            }
-            developers {
-                developer {
-                    id.set("developer")
-                    name.set("Developer")
-                }
-            }
-            scm {
-                url.set("https://github.com/NikhilBhutani/deviceai-runtime-kmp")
-                connection.set("scm:git:git://github.com/NikhilBhutani/deviceai-runtime-kmp.git")
-                developerConnection.set("scm:git:ssh://github.com/NikhilBhutani/deviceai-runtime-kmp.git")
-            }
+            connection.set("scm:git:git://github.com/NikhilBhutani/deviceai-runtime-kmp.git")
+            developerConnection.set("scm:git:ssh://github.com/NikhilBhutani/deviceai-runtime-kmp.git")
         }
-    }
-}
-
-val signingKey = (findProperty("signingInMemoryKey") as String?) ?: System.getenv("SIGNING_KEY")
-if (!signingKey.isNullOrEmpty()) {
-    signing {
-        useInMemoryPgpKeys(
-            signingKey,
-            (findProperty("signingInMemoryKeyPassword") as String?) ?: System.getenv("SIGNING_PASSWORD")
-        )
-        sign(publishing.publications)
-    }
-}
-
-afterEvaluate {
-    tasks.findByName("publish")?.apply {
-        dependsOn(
-            "linkDebugFrameworkIosArm64",
-            "linkDebugFrameworkIosX64",
-            "linkDebugFrameworkIosSimulatorArm64"
-        )
-        dependsOn("assembleRelease")
     }
 }
