@@ -7,6 +7,6 @@ plugins {
 }
 
 allprojects {
-    group = "com.nikhilbhutani"
+    group = "dev.deviceai"
     version = System.getenv("RELEASE_VERSION") ?: "0.1.0-SNAPSHOT"
 }

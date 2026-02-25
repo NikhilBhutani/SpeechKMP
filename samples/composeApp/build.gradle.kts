@@ -54,11 +54,11 @@ kotlin {
 }
 
 android {
-    namespace = "com.nikhilbhutani.demo"
+    namespace = "dev.deviceai.demo"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.nikhilbhutani.demo"
+        applicationId = "dev.deviceai.demo"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
@@ -85,7 +85,7 @@ android {
 
 compose.desktop {
     application {
-        mainClass = "com.nikhilbhutani.demo.MainKt"
+        mainClass = "dev.deviceai.demo.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg)
