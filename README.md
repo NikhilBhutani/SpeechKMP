@@ -4,7 +4,7 @@
 
 [![Build](https://github.com/deviceai-labs/runtime-kmp/actions/workflows/ci.yml/badge.svg)](https://github.com/deviceai-labs/runtime-kmp/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
-[![Maven Central](https://img.shields.io/maven-central/v/com.nikhilbhutani/runtime-speech)](https://central.sonatype.com/artifact/com.nikhilbhutani/runtime-speech)
+[![Maven Central](https://img.shields.io/maven-central/v/dev.deviceai/runtime-speech)](https://central.sonatype.com/artifact/dev.deviceai/runtime-speech)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2-blueviolet?logo=kotlin)](https://kotlinlang.org)
 [![KMP](https://img.shields.io/badge/Kotlin_Multiplatform-Android%20%7C%20iOS%20%7C%20Desktop-blue)](https://www.jetbrains.com/kotlin-multiplatform/)
 
@@ -41,7 +41,7 @@ Real numbers on real hardware. No marketing RTF.
 Your App
     │
     ▼
-DeviceAI Runtime  (com.nikhilbhutani)
+DeviceAI Runtime  (dev.deviceai)
     │   SpeechBridge — unified Kotlin API
     │   ModelRegistry — auto-download from HuggingFace
     │
@@ -82,7 +82,7 @@ DeviceAI Runtime  (com.nikhilbhutani)
 
 ```kotlin
 // build.gradle.kts
-implementation("com.nikhilbhutani:runtime-speech:0.1.1")
+implementation("dev.deviceai:runtime-speech:0.1.1")
 ```
 
 No repository configuration needed — Maven Central is included by default in Android and KMP projects.
@@ -101,9 +101,9 @@ implementation(project(":runtime-speech"))
 ### 2. Speech-to-Text
 
 ```kotlin
-import com.nikhilbhutani.SpeechBridge
-import com.nikhilbhutani.SttConfig
-import com.nikhilbhutani.models.ModelRegistry
+import dev.deviceai.SpeechBridge
+import dev.deviceai.SttConfig
+import dev.deviceai.models.ModelRegistry
 
 // Download model on first run (whisper-tiny = 75MB)
 val model = ModelRegistry.getOrDownload("ggml-tiny.en.bin")
@@ -124,8 +124,8 @@ SpeechBridge.shutdownStt()
 ### 3. Text-to-Speech
 
 ```kotlin
-import com.nikhilbhutani.SpeechBridge
-import com.nikhilbhutani.TtsConfig
+import dev.deviceai.SpeechBridge
+import dev.deviceai.TtsConfig
 
 SpeechBridge.initTts(
     modelPath = "/path/to/voice.onnx",
@@ -208,7 +208,7 @@ DeviceAI Runtime is modular — each AI modality ships as an independent module,
 - [x] TTS via Piper + ONNX
 - [x] Model auto-download from HuggingFace
 - [x] KMP: Android, iOS, Desktop
-- [x] Maven Central release (`com.nikhilbhutani:runtime-speech:0.1.1`)
+- [x] Maven Central release (`dev.deviceai:runtime-speech:0.1.1`)
 - [ ] Streaming TTS
 - [ ] Voice activity detection (VAD)
 

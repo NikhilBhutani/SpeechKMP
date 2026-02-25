@@ -9,7 +9,7 @@ plugins {
     alias(libs.plugins.vanniktech.publish)
 }
 
-group = "com.nikhilbhutani"
+group = "dev.deviceai"
 version = (System.getenv("RELEASE_VERSION") ?: "0.1.0-SNAPSHOT")
 
 // Minimum iOS version
@@ -37,7 +37,7 @@ kotlin {
             baseName = "deviceai-runtime-kmp"
             isStatic = true
             linkerOpts("-Wl,-no_implicit_dylibs")
-            freeCompilerArgs += listOf("-Xbinary=bundleId=com.nikhilbhutani.library")
+            freeCompilerArgs += listOf("-Xbinary=bundleId=dev.deviceai.library")
             freeCompilerArgs += "-Xoverride-konan-properties=osVersionMin.ios=$minIos"
         }
     }
@@ -170,7 +170,7 @@ kotlin {
         arch.compilations.getByName("main").cinterops {
             create("speech") {
                 defFile("src/iosMain/c_interop/speech_ios.def")
-                packageName("com.nikhilbhutani.native")
+                packageName("dev.deviceai.native")
                 compilerOpts("-I${projectDir}/src/iosMain/c_interop/include")
                 extraOpts("-libraryPath", libPath)
 
@@ -287,7 +287,7 @@ tasks.named("build").configure {
 
 // Android configuration
 extensions.configure<LibraryExtension> {
-    namespace = "com.nikhilbhutani"
+    namespace = "dev.deviceai"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
@@ -334,7 +334,7 @@ mavenPublishing {
     publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
     signAllPublications()
 
-    coordinates("com.nikhilbhutani", "runtime-speech", version.toString())
+    coordinates("dev.deviceai", "runtime-speech", version.toString())
 
     pom {
         name.set("DeviceAI Runtime — Speech")
