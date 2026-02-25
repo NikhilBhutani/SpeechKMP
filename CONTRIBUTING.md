@@ -6,14 +6,14 @@ Thanks for your interest. Here's how to get involved.
 
 1. Fork the repo and clone with submodules:
    ```bash
-   git clone --recursive https://github.com/NikhilBhutani/deviceai-runtime-kmp.git
+   git clone --recursive https://github.com/deviceai-labs/runtime-kmp.git
    ```
 2. Open in Android Studio (Hedgehog or later) or IntelliJ IDEA.
 3. Make sure CMake 3.22+ and Android NDK r26+ are installed.
 
 ## What to Work On
 
-- Check [open issues](https://github.com/NikhilBhutani/deviceai-runtime-kmp/issues) — issues labeled `good first issue` are a good starting point.
+- Check [open issues](https://github.com/deviceai-labs/runtime-kmp/issues) — issues labeled `good first issue` are a good starting point.
 - For larger changes, open an issue to discuss the approach before submitting a PR.
 
 ## Pull Requests
@@ -43,4 +43,4 @@ Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md). Include:
 
 ## Questions
 
-Open a [GitHub Discussion](https://github.com/NikhilBhutani/deviceai-runtime-kmp/discussions) — not an issue.
+Open a [GitHub Discussion](https://github.com/deviceai-labs/runtime-kmp/discussions) — not an issue.

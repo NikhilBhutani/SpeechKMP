@@ -339,7 +339,7 @@ mavenPublishing {
     pom {
         name.set("DeviceAI Runtime — Speech")
         description.set("Kotlin Multiplatform library for on-device Speech-to-Text and Text-to-Speech")
-        url.set("https://github.com/NikhilBhutani/deviceai-runtime-kmp")
+        url.set("https://github.com/deviceai-labs/runtime-kmp")
         licenses {
             license {
                 name.set("Apache-2.0")
@@ -354,9 +354,9 @@ mavenPublishing {
             }
         }
         scm {
-            url.set("https://github.com/NikhilBhutani/deviceai-runtime-kmp")
-            connection.set("scm:git:git://github.com/NikhilBhutani/deviceai-runtime-kmp.git")
-            developerConnection.set("scm:git:ssh://github.com/NikhilBhutani/deviceai-runtime-kmp.git")
+            url.set("https://github.com/deviceai-labs/runtime-kmp")
+            connection.set("scm:git:git://github.com/deviceai-labs/runtime-kmp.git")
+            developerConnection.set("scm:git:ssh://github.com/deviceai-labs/runtime-kmp.git")
         }
     }
 }
