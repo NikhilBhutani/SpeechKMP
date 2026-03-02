@@ -3,7 +3,7 @@
 > **Status: planned**
 
 Flutter plugin for on-device Speech-to-Text and Text-to-Speech, backed by
-[`android/speech`](../../android/speech) on Android and [`ios/speech`](../../ios/speech) on iOS.
+[`kotlin/speech`](../../kotlin/speech) on Android and [`ios/speech`](../../ios/speech) on iOS.
 
 ## What it will provide
 
@@ -21,5 +21,5 @@ dependencies:
 
 ## Contributing
 
-Implementation PRs welcome. The plugin bridges Dart to the Kotlin SDK (`kmp/speech`) on Android
+Implementation PRs welcome. The plugin bridges Dart to the Kotlin SDK (`kotlin/speech`) on Android
 and the Swift Package (`ios/speech`) on iOS via Flutter's platform channel mechanism.

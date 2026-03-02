@@ -3,7 +3,7 @@
 > **Status: planned**
 
 React Native module for on-device Speech-to-Text and Text-to-Speech, backed by
-[`android/speech`](../../android/speech) on Android and [`ios/speech`](../../ios/speech) on iOS.
+[`kotlin/speech`](../../kotlin/speech) on Android and [`ios/speech`](../../ios/speech) on iOS.
 
 ## What it will provide
 
@@ -22,5 +22,5 @@ yarn add react-native-deviceai-speech
 ## Contributing
 
 Implementation PRs welcome. The module uses React Native's New Architecture (TurboModules / JSI)
-to bridge JS calls to the Kotlin SDK (`kmp/speech`) on Android and the Swift Package (`ios/speech`)
+to bridge JS calls to the Kotlin SDK (`kotlin/speech`) on Android and the Swift Package (`ios/speech`)
 on iOS.

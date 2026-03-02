@@ -2,7 +2,7 @@
 
 **On-device AI runtime for Kotlin, iOS, Flutter, and React Native. Ship speech recognition and synthesis on Android, iOS, and Desktop — no cloud, no latency, no privacy risk.**
 
-[![Build](https://github.com/deviceai-labs/runtime-kmp/actions/workflows/ci.yml/badge.svg)](https://github.com/deviceai-labs/runtime-kmp/actions/workflows/ci.yml)
+[![Build](https://github.com/deviceai-labs/deviceai/actions/workflows/ci.yml/badge.svg)](https://github.com/deviceai-labs/deviceai/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![Maven Central](https://img.shields.io/maven-central/v/dev.deviceai/speech)](https://central.sonatype.com/artifact/dev.deviceai/speech)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2-blueviolet?logo=kotlin)](https://kotlinlang.org)
@@ -25,7 +25,7 @@
 **🚧 In development** — module exists; API and native integration not yet complete.
 **🗓 Planned** — stub exists to signal intent; no implementation yet.
 
-The Kotlin SDK (`kmp/`) works in both **Kotlin Multiplatform projects and Android-only projects** — it is pure Kotlin with no framework opinion. Lifecycle management, ViewModel wiring, and DI are intentionally left to the app. The SDK exposes `init`, `shutdown`, and `clear` — you integrate them however fits your architecture.
+The Kotlin SDK (`kotlin/`) works in both **Kotlin Multiplatform projects and Android-only projects** — it is pure Kotlin with no framework opinion. Lifecycle management, ViewModel wiring, and DI are intentionally left to the app. The SDK exposes `init`, `shutdown`, and `clear` — you integrate them however fits your architecture.
 
 Platform wrappers (`ios/`, `flutter/`, `react-native/`) exist only where there is a language boundary: Swift, Dart, and JavaScript cannot consume Kotlin directly.
 
@@ -35,7 +35,7 @@ Platform wrappers (`ios/`, `flutter/`, `react-native/`) exist only where there i
 
 ```
 deviceai/
-├── kmp/
+├── kotlin/
 │   ├── core/       dev.deviceai:core    ✅  model management, storage, logging
 │   ├── speech/     dev.deviceai:speech  ✅  STT (Whisper) + TTS (Piper)
 │   └── llm/        dev.deviceai:llm     🚧  LLM inference via llama.cpp
@@ -312,8 +312,8 @@ Browse all voices via `ModelRegistry.getPiperVoices()` — filters by language a
 **Prerequisites:** CMake 3.22+, Android NDK r26+, Xcode 16+ (iOS), Kotlin 2.2+
 
 ```bash
-git clone --recursive https://github.com/deviceai-labs/runtime-kmp.git
-cd runtime-kmp
+git clone --recursive https://github.com/deviceai-labs/deviceai.git
+cd deviceai
 
 # Compile checks
 ./gradlew :kotlin:core:compileKotlinJvm
@@ -342,7 +342,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for a deep-dive on the native layer, CMak
 - [x] Model auto-download from HuggingFace
 - [x] Published: `dev.deviceai:speech`
 - [ ] Streaming TTS
-- [ ] Voice activity detection (VAD)
+- [x] Voice activity detection (VAD) — adaptive energy-based, trims silence pre-inference
 
 ### `kotlin/llm` 🚧 In development
 - [ ] Local LLM inference via llama.cpp
