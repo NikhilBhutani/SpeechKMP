@@ -39,11 +39,11 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', '**/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      - name: Compile runtime-speech (JVM)
-        run: ./gradlew :runtime-speech:compileKotlinJvm --no-daemon
+      - name: Compile kotlin/speech (JVM)
+        run: ./gradlew :kotlin:speech:compileKotlinJvm --no-daemon
 
-      - name: Compile runtime-speech (Android)
-        run: ./gradlew :runtime-speech:compileDebugKotlinAndroid --no-daemon
+      - name: Compile kotlin/speech (Android)
+        run: ./gradlew :kotlin:speech:compileDebugKotlinAndroid --no-daemon
 
       - name: Compile sample app (Android)
         run: ./gradlew :samples:composeApp:compileDebugKotlinAndroid --no-daemon
@@ -74,8 +74,8 @@ jobs:
           key: gradle-macos-${{ hashFiles('**/*.gradle.kts', '**/gradle-wrapper.properties') }}
           restore-keys: gradle-macos-
 
-      - name: Compile runtime-speech (iOS Simulator arm64)
-        run: ./gradlew :runtime-speech:compileKotlinIosSimulatorArm64 --no-daemon
+      - name: Compile kotlin/speech (iOS Simulator arm64)
+        run: ./gradlew :kotlin:speech:compileKotlinIosSimulatorArm64 --no-daemon
 
       - name: Compile sample app (iOS Simulator arm64)
         run: ./gradlew :samples:composeApp:compileKotlinIosSimulatorArm64 --no-daemon
