@@ -29,6 +29,7 @@ local.properties
 xcuserdata/
 *.xcuserdata
 Pods/
+.build/
 
 # Native builds
 *.a

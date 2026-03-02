@@ -9,10 +9,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #                        PATHS
 # ═══════════════════════════════════════════════════════════════
 
-set(WHISPER_DIR "${CMAKE_SOURCE_DIR}/../../../whisper.cpp")
-set(PIPER_DIR "${CMAKE_SOURCE_DIR}/../../../piper")
-set(ONNX_DIR "${CMAKE_SOURCE_DIR}/../../../onnxruntime")
-set(ESPEAK_DIR "${CMAKE_SOURCE_DIR}/../../../espeak-ng")
+set(WHISPER_DIR "${CMAKE_SOURCE_DIR}/../../../../whisper.cpp")
+set(PIPER_DIR "${CMAKE_SOURCE_DIR}/../../../../piper")
+set(ONNX_DIR "${CMAKE_SOURCE_DIR}/../../../../onnxruntime")
+set(ESPEAK_DIR "${CMAKE_SOURCE_DIR}/../../../../espeak-ng")
 set(JNI_CPP_DIR "${PROJECT_SOURCE_DIR}/../../src/commonMain/cpp")
 
 # ═══════════════════════════════════════════════════════════════

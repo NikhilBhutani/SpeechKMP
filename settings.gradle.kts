@@ -15,6 +15,7 @@ dependencyResolutionManagement {
     }
 }
 
-include(":runtime-core")
-include(":runtime-speech")
+include(":kmp:core")
+include(":kmp:speech")
+include(":kmp:llm")
 include(":samples:composeApp")

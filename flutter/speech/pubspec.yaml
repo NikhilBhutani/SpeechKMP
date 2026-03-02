@@ -1,0 +1,22 @@
+name: deviceai_speech
+description: Flutter plugin for on-device Speech-to-Text and Text-to-Speech powered by DeviceAI.
+version: 0.1.0
+homepage: https://github.com/deviceai-labs/runtime-kmp
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: dev.deviceai.flutter.speech
+        pluginClass: DeviceAISpeechPlugin
+      ios:
+        pluginClass: DeviceAISpeechPlugin
+
+# Future: depends on android/speech (AAR) and ios/speech (XCFramework)
+# dev_dependencies:
+#   flutter_test:
+#     sdk: flutter

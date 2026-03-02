@@ -264,7 +264,7 @@ kotlin {
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.kotlinx.serialization.json)
-            api(project(":runtime-core"))
+            api(project(":kmp:core"))
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -335,7 +335,7 @@ mavenPublishing {
     publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
     signAllPublications()
 
-    coordinates("dev.deviceai", "runtime-speech", version.toString())
+    coordinates("dev.deviceai", "kmp-speech", version.toString())
 
     pom {
         name.set("DeviceAI Runtime — Speech")

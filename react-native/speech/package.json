@@ -1,0 +1,25 @@
+{
+  "name": "react-native-deviceai-speech",
+  "version": "0.1.0",
+  "description": "React Native module for on-device Speech-to-Text and Text-to-Speech powered by DeviceAI",
+  "main": "src/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/deviceai-labs/runtime-kmp.git",
+    "directory": "react-native/speech"
+  },
+  "keywords": [
+    "react-native",
+    "speech",
+    "stt",
+    "tts",
+    "on-device",
+    "ai"
+  ],
+  "author": "Nikhil Bhutani",
+  "license": "Apache-2.0",
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  }
+}
