@@ -1,3 +1,4 @@
+# Updated: message-array API (roles/contents/count), no on_complete callback
 headers = llm_ios.h
 headerFilter = llm_ios.h
 compilerOpts = -I$PROJECT_DIR/../llama.cpp/include \

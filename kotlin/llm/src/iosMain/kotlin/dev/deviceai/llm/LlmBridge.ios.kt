@@ -47,7 +47,8 @@ actual object LlmBridge {
 
     actual fun generateStream(messages: List<LlmMessage>, config: LlmGenConfig): Flow<String> =
         channelFlow {
-            val ref = StableRef.create(this as SendChannel<String>)
+            val channel: SendChannel<String> = this
+            val ref = StableRef.create(channel)
 
             val onToken = staticCFunction { token: CPointer<ByteVar>?, user: COpaquePointer? ->
                 val ch = user!!.asStableRef<SendChannel<String>>().get()
@@ -58,6 +59,7 @@ actual object LlmBridge {
             val onError = staticCFunction { message: CPointer<ByteVar>?, user: COpaquePointer? ->
                 val ch = user!!.asStableRef<SendChannel<String>>().get()
                 ch.close(RuntimeException(message?.toKString() ?: "Unknown error"))
+                Unit
             }
 
             memScoped {
