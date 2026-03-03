@@ -1,6 +1,7 @@
 package dev.deviceai.llm
 
 import dev.deviceai.llm.native.*
+import dev.deviceai.llm.rag.RagAugmentor
 import kotlinx.cinterop.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.SendChannel
@@ -19,17 +20,18 @@ actual object LlmBridge {
     actual fun shutdown() = llm_shutdown()
 
     actual fun generate(messages: List<LlmMessage>, config: LlmGenConfig): LlmResult {
+        val augmented = if (config.ragStore != null) RagAugmentor.augment(messages, config) else messages
         var text = ""
         val elapsed = measureTime {
             memScoped {
-                val rolesArr    = allocArray<CPointerVar<ByteVar>>(messages.size)
-                val contentsArr = allocArray<CPointerVar<ByteVar>>(messages.size)
-                messages.forEachIndexed { i, msg ->
+                val rolesArr    = allocArray<CPointerVar<ByteVar>>(augmented.size)
+                val contentsArr = allocArray<CPointerVar<ByteVar>>(augmented.size)
+                augmented.forEachIndexed { i, msg ->
                     rolesArr[i]    = msg.role.name.lowercase().cstr.getPointer(this)
                     contentsArr[i] = msg.content.cstr.getPointer(this)
                 }
                 val result = llm_generate(
-                    rolesArr, contentsArr, messages.size,
+                    rolesArr, contentsArr, augmented.size,
                     config.maxTokens, config.temperature,
                     config.topP, config.topK, config.repeatPenalty
                 )
@@ -47,6 +49,7 @@ actual object LlmBridge {
 
     actual fun generateStream(messages: List<LlmMessage>, config: LlmGenConfig): Flow<String> =
         channelFlow {
+            val augmented = if (config.ragStore != null) RagAugmentor.augment(messages, config) else messages
             val channel: SendChannel<String> = this
             val ref = StableRef.create(channel)
 
@@ -63,14 +66,14 @@ actual object LlmBridge {
             }
 
             memScoped {
-                val rolesArr    = allocArray<CPointerVar<ByteVar>>(messages.size)
-                val contentsArr = allocArray<CPointerVar<ByteVar>>(messages.size)
-                messages.forEachIndexed { i, msg ->
+                val rolesArr    = allocArray<CPointerVar<ByteVar>>(augmented.size)
+                val contentsArr = allocArray<CPointerVar<ByteVar>>(augmented.size)
+                augmented.forEachIndexed { i, msg ->
                     rolesArr[i]    = msg.role.name.lowercase().cstr.getPointer(this)
                     contentsArr[i] = msg.content.cstr.getPointer(this)
                 }
                 llm_generate_stream(
-                    rolesArr, contentsArr, messages.size,
+                    rolesArr, contentsArr, augmented.size,
                     config.maxTokens, config.temperature,
                     config.topP, config.topK, config.repeatPenalty,
                     onToken, onError,
