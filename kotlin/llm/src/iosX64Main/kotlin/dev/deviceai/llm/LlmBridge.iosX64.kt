@@ -2,7 +2,7 @@ package dev.deviceai.llm
 
 import dev.deviceai.llm.native.*
 import kotlinx.cinterop.*
-import kotlin.system.getTimeMillis
+import kotlin.time.measureTime
 
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 @OptIn(ExperimentalForeignApi::class)
@@ -14,32 +14,30 @@ actual object LlmBridge {
     actual fun shutdown() = llm_shutdown()
 
     actual fun generate(prompt: String, config: LlmConfig): LlmResult {
-        val startMs = getTimeMillis()
-        val result = llm_generate(
-            prompt, config.systemPrompt,
-            config.maxTokens, config.temperature,
-            config.topP, config.topK, config.repeatPenalty
-        )
-        val text = result?.toKString()?.also { llm_free_string(result) } ?: ""
+        var text = ""
+        val elapsed = measureTime {
+            val result = llm_generate(
+                prompt, config.systemPrompt,
+                config.maxTokens, config.temperature,
+                config.topP, config.topK, config.repeatPenalty
+            )
+            text = result?.toKString()?.also { llm_free_string(result) } ?: ""
+        }
         return LlmResult(
             text = text,
             tokenCount = text.split(" ").size,
             promptTokenCount = prompt.split(" ").size,
             finishReason = FinishReason.STOP,
-            generationTimeMs = getTimeMillis() - startMs
+            generationTimeMs = elapsed.inWholeMilliseconds
         )
     }
 
     actual fun generateStream(prompt: String, config: LlmConfig, callback: LlmStream) {
-        val startMs = getTimeMillis()
-        val fullText = StringBuilder()
-
         val ref = StableRef.create(callback)
 
         val onToken = staticCFunction { token: CPointer<ByteVar>?, user: COpaquePointer? ->
             val cb = user!!.asStableRef<LlmStream>().get()
             val piece = token?.toKString() ?: return@staticCFunction
-            fullText.append(piece)
             cb.onToken(piece)
         }
 
@@ -52,7 +50,7 @@ actual object LlmBridge {
                     tokenCount = text.split(" ").size,
                     promptTokenCount = 0,
                     finishReason = FinishReason.STOP,
-                    generationTimeMs = getTimeMillis() - startMs
+                    generationTimeMs = 0L
                 )
             )
         }
