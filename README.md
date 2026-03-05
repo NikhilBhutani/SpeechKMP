@@ -1,6 +1,6 @@
 # DeviceAI Runtime
 
-**On-device AI runtime for Kotlin, iOS, Flutter, and React Native. Ship speech recognition and synthesis on Android, iOS, and Desktop — no cloud, no latency, no privacy risk.**
+**On-device AI runtime for Kotlin, iOS, Flutter, and React Native. Ship speech recognition and synthesis on Android, iOS, and Desktop. No cloud, no privacy risk.**
 
 [![Build](https://github.com/deviceai-labs/deviceai/actions/workflows/ci.yml/badge.svg)](https://github.com/deviceai-labs/deviceai/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
