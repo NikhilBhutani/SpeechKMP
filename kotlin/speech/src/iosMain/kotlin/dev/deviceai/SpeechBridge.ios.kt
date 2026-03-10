@@ -6,10 +6,10 @@ import kotlinx.cinterop.*
 import platform.Foundation.*
 
 /**
- * iOS actual implementation of [SpeechBridge] — shared across arm64, x64, and simulatorArm64.
+ * iOS actual implementation of [SpeechBridge].
  *
- * Bridges Kotlin calls to the C API exposed via speech_ios.def (cinterop).
- * JSON parsing of transcription results is delegated to [TranscriptionJsonParser].
+ * Calls the unified dai_stt_* / dai_tts_* C API in deviceai_speech_engine directly
+ * via cinterop — no intermediate C++ wrapper file.
  */
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 @OptIn(ExperimentalForeignApi::class)
@@ -20,24 +20,26 @@ actual object SpeechBridge {
     // ══════════════════════════════════════════════════════════════
 
     actual fun initStt(modelPath: String, config: SttConfig): Boolean {
-        return speech_stt_init(
+        return dai_stt_init(
             modelPath,
             config.language,
-            config.translateToEnglish,
+            if (config.translateToEnglish) 1 else 0,
             config.maxThreads,
-            config.useGpu,
-            config.useVad
-        )
+            if (config.useGpu) 1 else 0,
+            if (config.useVad) 1 else 0,
+            if (config.singleSegment) 1 else 0,
+            if (config.noContext) 1 else 0
+        ) != 0
     }
 
     actual fun transcribe(audioPath: String): String {
-        val result = speech_stt_transcribe(audioPath)
-        return result?.toKString()?.also { speech_free_string(result) } ?: ""
+        val result = dai_stt_transcribe_file(audioPath)
+        return result?.toKString()?.also { dai_speech_free_string(result) } ?: ""
     }
 
     actual fun transcribeDetailed(audioPath: String): TranscriptionResult {
-        val jsonResult = speech_stt_transcribe_detailed(audioPath)
-        val jsonStr = jsonResult?.toKString()?.also { speech_free_string(jsonResult) } ?: "{}"
+        val jsonResult = dai_stt_transcribe_file_detailed(audioPath)
+        val jsonStr = jsonResult?.toKString()?.also { dai_speech_free_string(jsonResult) } ?: "{}"
         return TranscriptionJsonParser.parse(jsonStr)
     }
 
@@ -45,8 +47,8 @@ actual object SpeechBridge {
         memScoped {
             val nativeSamples = allocArray<FloatVar>(samples.size)
             samples.forEachIndexed { index, value -> nativeSamples[index] = value }
-            val result = speech_stt_transcribe_audio(nativeSamples, samples.size)
-            return result?.toKString()?.also { speech_free_string(result) } ?: ""
+            val result = dai_stt_transcribe(nativeSamples, samples.size)
+            return result?.toKString()?.also { dai_speech_free_string(result) } ?: ""
         }
     }
 
@@ -74,7 +76,7 @@ actual object SpeechBridge {
                 cb.onError(message?.toKString() ?: "Unknown error")
             }
 
-            speech_stt_transcribe_stream(
+            dai_stt_transcribe_stream(
                 nativeSamples, samples.size,
                 onPartial, onFinal, onError,
                 ref.asCPointer()
@@ -84,16 +86,16 @@ actual object SpeechBridge {
         }
     }
 
-    actual fun cancelStt() = speech_stt_cancel()
+    actual fun cancelStt() = dai_stt_cancel()
 
-    actual fun shutdownStt() = speech_stt_shutdown()
+    actual fun shutdownStt() = dai_stt_shutdown()
 
     // ══════════════════════════════════════════════════════════════
     //                    TEXT-TO-SPEECH (TTS)
     // ══════════════════════════════════════════════════════════════
 
     actual fun initTts(modelPath: String, configPath: String, config: TtsConfig): Boolean {
-        return speech_tts_init(
+        return dai_tts_init(
             modelPath,
             configPath,
             config.espeakDataPath ?: "",
@@ -101,22 +103,22 @@ actual object SpeechBridge {
             config.speechRate,
             config.sampleRate,
             config.sentenceSilence
-        )
+        ) != 0
     }
 
     actual fun synthesize(text: String): ShortArray {
         memScoped {
             val outLength = alloc<IntVar>()
-            val result = speech_tts_synthesize(text, outLength.ptr)
+            val result = dai_tts_synthesize(text, outLength.ptr)
             if (result == null) return shortArrayOf()
             val samples = ShortArray(outLength.value) { result[it] }
-            speech_free_audio(result)
+            dai_speech_free_audio(result)
             return samples
         }
     }
 
     actual fun synthesizeToFile(text: String, outputPath: String): Boolean =
-        speech_tts_synthesize_to_file(text, outputPath)
+        dai_tts_synthesize_to_file(text, outputPath) != 0
 
     actual fun synthesizeStream(text: String, callback: TtsStream) {
         val ref = StableRef.create(callback)
@@ -137,13 +139,13 @@ actual object SpeechBridge {
             cb.onError(message?.toKString() ?: "Unknown error")
         }
 
-        speech_tts_synthesize_stream(text, onChunk, onComplete, onError, ref.asCPointer())
+        dai_tts_synthesize_stream(text, onChunk, onComplete, onError, ref.asCPointer())
         ref.dispose()
     }
 
-    actual fun cancelTts() = speech_tts_cancel()
+    actual fun cancelTts() = dai_tts_cancel()
 
-    actual fun shutdownTts() = speech_tts_shutdown()
+    actual fun shutdownTts() = dai_tts_shutdown()
 
     // ══════════════════════════════════════════════════════════════
     //                         UTILITIES
@@ -179,5 +181,5 @@ actual object SpeechBridge {
         return modelFileName
     }
 
-    actual fun shutdown() = speech_shutdown_all()
+    actual fun shutdown() = dai_speech_shutdown_all()
 }

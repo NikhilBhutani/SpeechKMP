@@ -1,9 +1,8 @@
-# Updated: message-array API (roles/contents/count), no on_complete callback
-headers = llm_ios.h
-headerFilter = llm_ios.h
-compilerOpts = -I$PROJECT_DIR/../llama.cpp/include \
-               -I$PROJECT_DIR/../llama.cpp \
-               -I$PROJECT_DIR/src/iosMain/c_interop/include
+headers = deviceai_llm_engine.h
+headerFilter = deviceai_llm_engine.h
+compilerOpts = -I$PROJECT_DIR/../../cpp/llm \
+               -I$PROJECT_DIR/../llama.cpp/include \
+               -I$PROJECT_DIR/../llama.cpp
 staticLibraries = libllm_merged.a
 linkerOpts = -framework Accelerate -framework Metal -framework MetalKit -lc++ -ObjC
 package = dev.deviceai.llm.native
