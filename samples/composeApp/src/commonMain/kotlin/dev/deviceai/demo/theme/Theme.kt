@@ -1,71 +1,55 @@
 package dev.deviceai.demo.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// Electric violet — voice/audio aesthetic
-private val Purple10  = Color(0xFF1A0042)
-private val Purple20  = Color(0xFF2D0072)
-private val Purple30  = Color(0xFF4A1B8C)
-private val Purple80  = Color(0xFFCFBCFF)
-private val Purple90  = Color(0xFFE9DDFF)
+// ── Website color tokens ──────────────────────────────────────────────────────
+// Source: deviceai.dev globals.css
+val Amber     = Color(0xFFF59E0B)   // --color-amber
+val AmberDark = Color(0xFFD97706)   // --color-amber-d
+val Cyan      = Color(0xFF06B6D4)   // --color-cyan
+val Muted     = Color(0xFF71717A)   // --color-muted
 
-// Cyan — recording / active state accent
-private val Cyan10 = Color(0xFF001F29)
-private val Cyan40 = Color(0xFF00729A)
-private val Cyan80 = Color(0xFF72D6FF)
-private val Cyan90 = Color(0xFFB3EEFF)
+val Black     = Color(0xFF000000)
+val Space     = Color(0xFF0A0A0A)   // near-black surface
+val SpaceCard = Color(0xFF111111)   // card surface
+val SpaceLine = Color(0xFF1F1F1F)   // subtle divider / outline
+val White     = Color(0xFFFFFFFF)
 
-private val DarkColorScheme = darkColorScheme(
-    primary              = Color(0xFF9D6FF7),   // Electric violet
-    onPrimary            = Purple10,
-    primaryContainer     = Purple30,
-    onPrimaryContainer   = Purple90,
-    secondary            = Color(0xFF4DD9E8),   // Cyan accent
-    onSecondary          = Cyan10,
-    secondaryContainer   = Cyan40,
-    onSecondaryContainer = Cyan90,
-    background           = Color(0xFF0F0F17),   // Near-black with blue tint
-    onBackground         = Color(0xFFE6E0F0),
-    surface              = Color(0xFF1C1B2E),
-    onSurface            = Color(0xFFE6E0F0),
-    surfaceVariant       = Color(0xFF2D2B40),
-    onSurfaceVariant     = Color(0xFFCAC4DD),
-    outline              = Color(0xFF938FA9),
-    error                = Color(0xFFFF6B6B),
-    onError              = Color(0xFF3A0000),
-    errorContainer       = Color(0xFF6B0000),
-    onErrorContainer     = Color(0xFFFFDAD6),
-)
+private val ColorScheme = darkColorScheme(
+    primary              = Amber,
+    onPrimary            = Black,
+    primaryContainer     = Color(0xFF1C1400),
+    onPrimaryContainer   = Color(0xFFFBBF24),
 
-private val LightColorScheme = lightColorScheme(
-    primary              = Color(0xFF5B2DB0),
-    onPrimary            = Color(0xFFFFFFFF),
-    primaryContainer     = Purple90,
-    onPrimaryContainer   = Purple10,
-    secondary            = Color(0xFF006782),
-    onSecondary          = Color(0xFFFFFFFF),
-    secondaryContainer   = Cyan90,
-    onSecondaryContainer = Cyan10,
-    background           = Color(0xFFFBF8FF),
-    onBackground         = Color(0xFF1C1B2E),
-    surface              = Color(0xFFFBF8FF),
-    onSurface            = Color(0xFF1C1B2E),
-    surfaceVariant       = Color(0xFFE7E0EB),
-    onSurfaceVariant     = Color(0xFF4A4459),
+    secondary            = Cyan,
+    onSecondary          = Black,
+    secondaryContainer   = Color(0xFF001A1F),
+    onSecondaryContainer = Color(0xFF67E8F9),
+
+    background           = Black,
+    onBackground         = White,
+
+    surface              = Space,
+    onSurface            = White,
+
+    surfaceVariant       = SpaceCard,
+    onSurfaceVariant     = Muted,
+
+    outline              = SpaceLine,
+
+    error                = Color(0xFFEF4444),
+    onError              = Black,
+    errorContainer       = Color(0xFF1A0000),
+    onErrorContainer     = Color(0xFFFCA5A5),
 )
 
 @Composable
-fun DeviceAITheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit
-) {
+fun DeviceAITheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
+        colorScheme = ColorScheme,
         content = content
     )
 }

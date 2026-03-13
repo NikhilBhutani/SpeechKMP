@@ -293,6 +293,21 @@ void dai_speech_free_audio(int16_t *ptr);
 /** Shutdown both STT and TTS in one call. */
 void dai_speech_shutdown_all(void);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MARK: - ZIP extraction (iOS Core ML model download helper)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Extract a ZIP archive to a destination directory.
+ * Supports STORE (method=0) and DEFLATE (method=8) entries.
+ * Used to unpack ggml-*-encoder.mlmodelc.zip for Core ML acceleration.
+ *
+ * @param zip_path  Absolute path to the .zip file.
+ * @param dest_dir  Absolute path to the output directory (created if needed).
+ * @return 1 on success, 0 on failure.
+ */
+int dai_extract_zip(const char *zip_path, const char *dest_dir);
+
 #ifdef __cplusplus
 }
 #endif

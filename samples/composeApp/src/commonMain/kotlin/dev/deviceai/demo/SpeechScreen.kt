@@ -26,38 +26,58 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.screen.Screen
+import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.deviceai.demo.theme.Amber
+import dev.deviceai.demo.theme.Black
+import dev.deviceai.demo.theme.Muted
+import dev.deviceai.demo.theme.SpaceCard
+import dev.deviceai.demo.theme.SpaceLine
+import dev.deviceai.demo.theme.White
 import org.koin.compose.koinInject
 
 @Composable
 fun SpeechTabContent(viewModel: SpeechViewModel, padding: PaddingValues) {
+    val navigator = LocalNavigator.currentOrThrow
+    val modelSelVm: ModelSelectionViewModel = koinInject()
+
     val recordingState by viewModel.recordingState.collectAsState()
+    val activeVoicePath by modelSelVm.activeVoicePath.collectAsState()
+    val voiceModels by modelSelVm.voiceModels.collectAsState()
+
+    // Look up the curated display name for the active model
+    val activeModelName: String? = if (activeVoicePath != null) {
+        voiceModels.firstOrNull { it.isActive }?.name
+    } else null
+
+    // Initialize when active voice path changes
+    LaunchedEffect(activeVoicePath) {
+        activeVoicePath?.let { viewModel.initialize(it) }
+    }
 
     DisposableEffect(Unit) {
         onDispose { viewModel.resetRecording() }
@@ -67,13 +87,45 @@ fun SpeechTabContent(viewModel: SpeechViewModel, padding: PaddingValues) {
         modifier = Modifier
             .fillMaxSize()
             .padding(padding)
-            .padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(Black)
     ) {
+        // Top bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left: brand
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Memory,
+                    contentDescription = null,
+                    tint = Amber,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "DeviceAI",
+                    fontWeight = FontWeight.SemiBold,
+                    color = White,
+                    fontSize = 15.sp
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            // Right: model chip
+            SttModelChip(
+                name = activeModelName,
+                onClick = { navigator.push(ModelPickerScreen("STT")) }
+            )
+        }
+
+        // Recording UI
         Box(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
             contentAlignment = Alignment.Center
         ) {
             TranscriptArea(recordingState)
@@ -81,7 +133,9 @@ fun SpeechTabContent(viewModel: SpeechViewModel, padding: PaddingValues) {
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(bottom = 52.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 52.dp),
         ) {
             StatusLabel(recordingState)
             Spacer(Modifier.height(24.dp))
@@ -93,36 +147,47 @@ fun SpeechTabContent(viewModel: SpeechViewModel, padding: PaddingValues) {
     }
 }
 
-class SpeechScreen : Screen {
+// ── STT Model Chip ────────────────────────────────────────────────────────────
 
-    @OptIn(ExperimentalMaterial3Api::class)
-    @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel: SpeechViewModel = koinInject()
-
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Transcribe", style = MaterialTheme.typography.titleLarge) },
-                    navigationIcon = {
-                        IconButton(onClick = { navigator.pop() }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back"
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
-                    )
+@Composable
+private fun SttModelChip(name: String?, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        color = SpaceCard,
+        border = androidx.compose.foundation.BorderStroke(1.dp, SpaceLine)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (name != null) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(Amber, CircleShape)
                 )
-            },
-            containerColor = MaterialTheme.colorScheme.background
-        ) { padding ->
-            SpeechTabContent(viewModel, padding)
+                Text(
+                    text = name.take(18),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            } else {
+                Text(
+                    text = "Select model",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Muted
+                )
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = Muted,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
         }
     }
 }
@@ -139,14 +204,14 @@ private fun TranscriptArea(state: RecordingState) {
         is RecordingState.Transcribing -> {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator(
-                    color = MaterialTheme.colorScheme.primary,
+                    color = Amber,
                     strokeWidth = 3.dp
                 )
                 Spacer(Modifier.height(16.dp))
                 Text(
                     text = "Transcribing...",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Muted
                 )
             }
         }
@@ -170,7 +235,7 @@ private fun HintText(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = Muted,
         textAlign = TextAlign.Center
     )
 }
@@ -206,10 +271,7 @@ private fun WaveformBars() {
                     modifier = Modifier
                         .width(5.dp)
                         .fillMaxHeight(h)
-                        .background(
-                            MaterialTheme.colorScheme.primary,
-                            RoundedCornerShape(4.dp)
-                        )
+                        .background(Amber, RoundedCornerShape(4.dp))
                 )
             }
         }
@@ -217,7 +279,7 @@ private fun WaveformBars() {
         Text(
             text = "Listening...",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = Muted
         )
     }
 }
@@ -226,26 +288,26 @@ private fun WaveformBars() {
 private fun TranscriptCard(text: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        tonalElevation = 2.dp
+        shape = RoundedCornerShape(16.dp),
+        color = SpaceCard,
+        border = androidx.compose.foundation.BorderStroke(1.dp, SpaceLine)
     ) {
         Column(
             modifier = Modifier
-                .padding(24.dp)
+                .padding(20.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             Text(
                 text = "TRANSCRIPTION",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
+                color = Amber,
                 letterSpacing = MaterialTheme.typography.labelSmall.letterSpacing
             )
             Spacer(Modifier.height(12.dp))
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = White
             )
         }
     }
@@ -256,11 +318,11 @@ private fun TranscriptCard(text: String) {
 @Composable
 private fun StatusLabel(state: RecordingState) {
     val (label, color) = when (state) {
-        is RecordingState.Idle        -> "Ready to record" to MaterialTheme.colorScheme.onSurfaceVariant
-        is RecordingState.Recording   -> "Recording  ·  tap to stop" to MaterialTheme.colorScheme.error
-        is RecordingState.Transcribing -> "Processing audio..." to MaterialTheme.colorScheme.primary
-        is RecordingState.Result      -> "Tap to record again" to MaterialTheme.colorScheme.onSurfaceVariant
-        is RecordingState.Error       -> "Error  ·  tap to retry" to MaterialTheme.colorScheme.error
+        is RecordingState.Idle         -> "Ready to record" to Muted
+        is RecordingState.Recording    -> "Recording  ·  tap to stop" to MaterialTheme.colorScheme.error
+        is RecordingState.Transcribing -> "Processing audio..." to Amber
+        is RecordingState.Result       -> "Tap to record again" to Muted
+        is RecordingState.Error        -> "Error  ·  tap to retry" to MaterialTheme.colorScheme.error
     }
     Text(
         text = label,
@@ -314,12 +376,12 @@ private fun MicButton(recordingState: RecordingState, onClick: () -> Unit) {
             modifier = Modifier.size(76.dp),
             containerColor = when {
                 isRecording    -> MaterialTheme.colorScheme.error
-                isTranscribing -> MaterialTheme.colorScheme.surfaceVariant
-                else           -> MaterialTheme.colorScheme.primary
+                isTranscribing -> SpaceCard
+                else           -> Amber
             },
             contentColor = when {
-                isTranscribing -> MaterialTheme.colorScheme.onSurfaceVariant
-                else           -> Color.White
+                isTranscribing -> Muted
+                else           -> Black
             }
         ) {
             Icon(

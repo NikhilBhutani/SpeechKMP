@@ -3,11 +3,11 @@ package dev.deviceai.models
 /**
  * Downloads Whisper GGML models (.bin) from HuggingFace and registers them.
  */
-internal class WhisperDownloadStrategy(
-    private val http: HttpFileDownloader,
-    private val fs: FileSystem,
-    private val paths: StoragePaths,
-    private val store: MetadataStore
+internal open class WhisperDownloadStrategy(
+    protected val http: HttpFileDownloader,
+    protected val fs: FileSystem,
+    protected val paths: StoragePaths,
+    protected val store: MetadataStore
 ) : ModelDownloadStrategy {
 
     override fun supports(model: ModelInfo): Boolean = model is WhisperModelInfo

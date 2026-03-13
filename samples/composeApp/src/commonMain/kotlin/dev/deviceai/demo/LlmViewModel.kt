@@ -5,11 +5,6 @@ import dev.deviceai.llm.LlmGenConfig
 import dev.deviceai.llm.LlmInitConfig
 import dev.deviceai.llm.LlmMessage
 import dev.deviceai.llm.LlmRole
-import dev.deviceai.llm.models.LlmCatalog
-import dev.deviceai.llm.models.LlmModelInfo
-import dev.deviceai.models.DownloadProgress
-import dev.deviceai.models.LocalModelType
-import dev.deviceai.models.ModelRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -27,9 +22,7 @@ import kotlinx.coroutines.withContext
 // ── LLM loading state ─────────────────────────────────────────────────────────
 
 sealed class LlmState {
-    object NotAvailable : LlmState()                          // native library not compiled yet
-    object Idle : LlmState()                                  // ready to start download / load
-    data class Downloading(val progress: DownloadProgress) : LlmState()  // downloading model file
+    object NotAvailable : LlmState()                          // no model path provided
     object Loading : LlmState()                               // LlmBridge.initLlm() in progress
     object Ready : LlmState()                                 // model loaded, chat works
     data class Error(val msg: String) : LlmState()
@@ -43,7 +36,9 @@ data class ChatMessage(
     val role: Role,
     val text: String,
     val isStreaming: Boolean = false,
-    val id: Long = 0L
+    val id: Long = 0L,
+    val timestampMs: Long = 0L,
+    val tokenCount: Int = 0
 )
 
 // ── ViewModel ─────────────────────────────────────────────────────────────────
@@ -56,9 +51,7 @@ class LlmViewModel {
     private val nativeAvailable: Boolean =
         runCatching { LlmBridge.toString(); true }.getOrElse { false }
 
-    private val _state = MutableStateFlow<LlmState>(
-        if (nativeAvailable) LlmState.Idle else LlmState.NotAvailable
-    )
+    private val _state = MutableStateFlow<LlmState>(LlmState.NotAvailable)
     val state: StateFlow<LlmState> = _state.asStateFlow()
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -67,7 +60,12 @@ class LlmViewModel {
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
 
-    val suggestedModel: LlmModelInfo = LlmCatalog.SMOLLM2_360M_INSTRUCT_Q4
+    // Stats
+    private val _tokensPerSec = MutableStateFlow(0f)
+    val tokensPerSec: StateFlow<Float> = _tokensPerSec.asStateFlow()
+
+    private val _latencyMs = MutableStateFlow(0L)
+    val latencyMs: StateFlow<Long> = _latencyMs.asStateFlow()
 
     private var nextId = 0L
     private fun nextMessageId() = nextId++
@@ -75,37 +73,22 @@ class LlmViewModel {
     // ── Public API ────────────────────────────────────────────────────────────
 
     /**
-     * Kick off model discovery → download (if needed) → load.
-     * Mirrors how SpeechViewModel.initialize() works for Whisper.
-     * Safe to call multiple times — no-ops unless in Idle state.
+     * Initialize the LLM with the provided model path.
+     * If [modelPath] is null, sets state to [LlmState.NotAvailable].
+     * Safe to call multiple times — no-ops if already in Loading or Ready state.
      */
-    fun initialize() {
-        if (_state.value !is LlmState.Idle) return
-
-        scope.launch {
-            withContext(Dispatchers.IO) { ModelRegistry.initialize() }
-
-            // Already downloaded?
-            val existing = ModelRegistry.getLocalModel(suggestedModel.id)
-            if (existing != null) {
-                loadModel(existing.modelPath)
-                return@launch
-            }
-
-            // Download from HuggingFace
-            val url = "https://huggingface.co/${suggestedModel.repoId}/resolve/main/${suggestedModel.filename}"
-            val result = ModelRegistry.downloadRawFile(
-                modelId   = suggestedModel.id,
-                url       = url,
-                modelType = LocalModelType("LLM"),
-                onProgress = { _state.value = LlmState.Downloading(it) }
-            )
-
-            result.fold(
-                onSuccess = { local -> loadModel(local.modelPath) },
-                onFailure = { e   -> _state.value = LlmState.Error("Download failed: ${e.message}") }
-            )
+    fun initialize(modelPath: String?) {
+        if (modelPath == null) {
+            _state.value = LlmState.NotAvailable
+            return
         }
+        if (!nativeAvailable) {
+            _state.value = LlmState.NotAvailable
+            return
+        }
+        if (_state.value is LlmState.Loading || _state.value is LlmState.Ready) return
+
+        loadModel(modelPath)
     }
 
     fun loadModel(path: String) {
@@ -122,12 +105,17 @@ class LlmViewModel {
     fun sendMessage(text: String) {
         if (_isGenerating.value || text.isBlank()) return
 
-        val userMsg = ChatMessage(role = Role.USER, text = text, id = nextMessageId())
+        val nowMs = currentTimeMs()
+        val userMsg = ChatMessage(role = Role.USER, text = text, id = nextMessageId(), timestampMs = nowMs)
         val assistantMsg = ChatMessage(
-            role = Role.ASSISTANT, text = "", isStreaming = true, id = nextMessageId()
+            role = Role.ASSISTANT, text = "", isStreaming = true, id = nextMessageId(), timestampMs = nowMs
         )
         _messages.value = _messages.value + userMsg + assistantMsg
         _isGenerating.value = true
+
+        // Reset stats
+        _tokensPerSec.value = 0f
+        _latencyMs.value = 0L
 
         // Build a clean LlmMessage list from conversation history up to and including
         // the new user message. No encoding hacks — native side receives structured arrays.
@@ -140,12 +128,34 @@ class LlmViewModel {
                 )
             }
 
+        val genStartMs = currentTimeMs()
+        var tokenCount = 0
+        var firstTokenMs = -1L
+
         LlmBridge.generateStream(llmMessages, LlmGenConfig())
             .onEach { token ->
+                tokenCount++
+                val elapsedMs = currentTimeMs() - genStartMs
+
+                // Record latency to first token
+                if (firstTokenMs < 0L) {
+                    firstTokenMs = elapsedMs
+                    _latencyMs.value = firstTokenMs
+                }
+
+                // Update tokens/sec
+                val elapsedSec = elapsedMs / 1000f
+                if (elapsedSec > 0f) {
+                    _tokensPerSec.value = tokenCount / elapsedSec
+                }
+
                 val current = _messages.value.toMutableList()
                 val idx = current.indexOfLast { it.role == Role.ASSISTANT && it.isStreaming }
                 if (idx >= 0) {
-                    current[idx] = current[idx].copy(text = current[idx].text + token)
+                    current[idx] = current[idx].copy(
+                        text = current[idx].text + token,
+                        tokenCount = tokenCount
+                    )
                     _messages.value = current
                 }
             }
@@ -163,11 +173,6 @@ class LlmViewModel {
             _messages.value = current
         }
         _isGenerating.value = false
-    }
-
-    fun retry() {
-        _state.value = LlmState.Idle
-        initialize()
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

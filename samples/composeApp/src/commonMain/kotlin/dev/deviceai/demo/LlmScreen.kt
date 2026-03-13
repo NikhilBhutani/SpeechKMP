@@ -1,9 +1,7 @@
 package dev.deviceai.demo
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,24 +14,24 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.SmartToy
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,147 +43,210 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import dev.deviceai.llm.models.LlmModelInfo
-import dev.deviceai.models.DownloadProgress
+import androidx.compose.ui.unit.sp
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.deviceai.demo.theme.Amber
+import dev.deviceai.demo.theme.Black
+import dev.deviceai.demo.theme.Muted
+import dev.deviceai.demo.theme.SpaceCard
+import dev.deviceai.demo.theme.SpaceLine
+import dev.deviceai.demo.theme.White
+import org.koin.compose.koinInject
 
 @Composable
 fun LlmTabContent(viewModel: LlmViewModel, padding: PaddingValues) {
+    val navigator = LocalNavigator.currentOrThrow
+    val modelSelVm: ModelSelectionViewModel = koinInject()
+
     val state by viewModel.state.collectAsState()
     val messages by viewModel.messages.collectAsState()
     val isGenerating by viewModel.isGenerating.collectAsState()
+    val tokensPerSec by viewModel.tokensPerSec.collectAsState()
+    val latencyMs by viewModel.latencyMs.collectAsState()
+    val activeChatPath by modelSelVm.activeChatPath.collectAsState()
 
-    // Auto-start download/load as soon as the Chat tab becomes active.
-    LaunchedEffect(Unit) { viewModel.initialize() }
+    // Extract display name from file path
+    val activeModelName: String? = activeChatPath?.let { path ->
+        val filename = path.substringAfterLast('/').substringAfterLast('\\')
+        val nameNoExt = filename.substringBeforeLast('.')
+        nameNoExt.replace('-', ' ').replace('_', ' ')
+            .split(' ')
+            .take(3)
+            .joinToString(" ")
+            .take(18)
+            .trim()
+    }
 
-    Box(
+    // Initialize when path changes
+    LaunchedEffect(activeChatPath) {
+        activeChatPath?.let { viewModel.initialize(it) }
+    }
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding)
+            .background(Black)
     ) {
-        when (val s = state) {
-            is LlmState.NotAvailable  -> NotAvailableContent(viewModel.suggestedModel)
-            is LlmState.Idle          -> IdleContent(viewModel.suggestedModel, onDownload = viewModel::initialize)
-            is LlmState.Downloading   -> DownloadingContent(viewModel.suggestedModel, s.progress)
-            is LlmState.Loading       -> LoadingContent()
-            is LlmState.Ready         -> ChatContent(messages, isGenerating, viewModel)
-            is LlmState.Error         -> ErrorContent(s.msg, onRetry = viewModel::retry)
-        }
-    }
-}
-
-// ── NotAvailable ──────────────────────────────────────────────────────────────
-
-@Composable
-private fun NotAvailableContent(model: LlmModelInfo) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.SmartToy,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = "On-Device Chat",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "Fully offline · No API key needed",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(20.dp))
-        Surface(
-            shape = RoundedCornerShape(50),
-            color = MaterialTheme.colorScheme.secondaryContainer
+        // Top bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "🔧  Native library compiling",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            // Left: brand
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Memory,
+                    contentDescription = null,
+                    tint = Amber,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "DeviceAI",
+                    fontWeight = FontWeight.SemiBold,
+                    color = White,
+                    fontSize = 15.sp
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            // Right: model chip
+            ModelChip(
+                name = activeModelName,
+                onClick = { navigator.push(ModelPickerScreen("LLM")) }
             )
         }
-        Spacer(Modifier.height(28.dp))
-        HorizontalDivider()
-        Spacer(Modifier.height(20.dp))
-        ModelPreviewCard(model)
-        Spacer(Modifier.height(20.dp))
-        Text(
-            text = "This tab becomes active once llama.cpp is compiled",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            textAlign = TextAlign.Center
-        )
-    }
-}
 
-// ── Idle ──────────────────────────────────────────────────────────────────────
+        // Stats row — only show when Ready
+        if (state is LlmState.Ready) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val tpsStr = if (tokensPerSec > 0f) {
+                    val whole = tokensPerSec.toLong()
+                    val dec = ((tokensPerSec - whole) * 10).toLong()
+                    "$whole.$dec t/s"
+                } else "— t/s"
+                val latStr = if (latencyMs > 0L) "$latencyMs ms" else "— ms"
 
-@Composable
-private fun IdleContent(model: LlmModelInfo, onDownload: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.SmartToy,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = "On-Device Chat",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "Fully offline · No API key needed",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(28.dp))
-        ModelPreviewCard(model)
-        Spacer(Modifier.height(24.dp))
-        Button(
-            onClick = onDownload,
-            modifier = Modifier
-                .fillMaxWidth(0.65f)
-                .height(52.dp)
-        ) {
-            Text("Download & Load", style = MaterialTheme.typography.titleMedium)
+                StatCard(
+                    label = "TOKENS/SEC",
+                    value = tpsStr,
+                    modifier = Modifier.weight(1f)
+                )
+                StatCard(
+                    label = "LATENCY",
+                    value = latStr,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(8.dp))
         }
-        Spacer(Modifier.height(12.dp))
-        Text(
-            text = "One-time download · runs fully on-device",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+
+        // Content area
+        Box(modifier = Modifier.weight(1f)) {
+            when (val s = state) {
+                is LlmState.NotAvailable -> LlmEmptyState()
+                is LlmState.Loading      -> LlmLoadingContent()
+                is LlmState.Ready        -> LlmChatContent(messages, isGenerating, viewModel)
+                is LlmState.Error        -> LlmErrorContent(s.msg)
+            }
+        }
+
+        // Input bar
+        LlmInputBar(
+            isGenerating = isGenerating,
+            onSend = { text -> viewModel.sendMessage(text) }
         )
     }
 }
 
-// ── Downloading ───────────────────────────────────────────────────────────────
+// ── ModelChip ─────────────────────────────────────────────────────────────────
 
 @Composable
-private fun DownloadingContent(model: LlmModelInfo, progress: DownloadProgress) {
+private fun ModelChip(name: String?, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        color = SpaceCard,
+        border = androidx.compose.foundation.BorderStroke(1.dp, SpaceLine)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (name != null) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(Amber, CircleShape)
+                )
+                Text(
+                    text = name.take(18),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            } else {
+                Text(
+                    text = "Select model",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Muted
+                )
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = Muted,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+    }
+}
+
+// ── StatCard ──────────────────────────────────────────────────────────────────
+
+@Composable
+private fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(10.dp),
+        color = SpaceCard,
+        border = androidx.compose.foundation.BorderStroke(1.dp, SpaceLine)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = Muted
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                color = White
+            )
+        }
+    }
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun LlmEmptyState() {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -196,33 +257,21 @@ private fun DownloadingContent(model: LlmModelInfo, progress: DownloadProgress) 
         Icon(
             imageVector = Icons.Default.SmartToy,
             contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = "Downloading ${model.name}",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Spacer(Modifier.height(20.dp))
-        LinearProgressIndicator(
-            progress = { (progress.percentComplete / 100f).coerceIn(0f, 1f) },
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant
+            modifier = Modifier.size(48.dp),
+            tint = Muted
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            text = "${progress.percentComplete.toInt()}%  ·  ${formatMb(progress.bytesDownloaded)} / ${formatMb(model.sizeBytes)}",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            text = "No model selected",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Muted
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "One-time download · runs fully on-device",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            text = "Tap 'Select model' above to get started.",
+            style = MaterialTheme.typography.labelSmall,
+            color = SpaceLine,
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -230,34 +279,26 @@ private fun DownloadingContent(model: LlmModelInfo, progress: DownloadProgress) 
 // ── Loading ───────────────────────────────────────────────────────────────────
 
 @Composable
-private fun LoadingContent() {
+private fun LlmLoadingContent() {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        CircularProgressIndicator()
+        CircularProgressIndicator(color = Amber)
         Spacer(Modifier.height(16.dp))
         Text(
             text = "Loading model...",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = Muted
         )
     }
-}
-
-private fun formatMb(bytes: Long): String {
-    if (bytes <= 0L) return "0 MB"
-    val mb = bytes / (1024.0 * 1024.0)
-    val whole = mb.toLong()
-    val decimal = ((mb - whole) * 10).toLong()
-    return "$whole.${decimal} MB"
 }
 
 // ── Error ─────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun ErrorContent(message: String, onRetry: () -> Unit) {
+private fun LlmErrorContent(message: String) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -271,22 +312,24 @@ private fun ErrorContent(message: String, onRetry: () -> Unit) {
             color = MaterialTheme.colorScheme.error,
             textAlign = TextAlign.Center
         )
-        Spacer(Modifier.height(16.dp))
-        OutlinedButton(onClick = onRetry) {
-            Text("Retry")
-        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Tap 'Select model' above to choose a different model.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Muted,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
-// ── Chat ──────────────────────────────────────────────────────────────────────
+// ── Chat content ──────────────────────────────────────────────────────────────
 
 @Composable
-private fun ChatContent(
+private fun LlmChatContent(
     messages: List<ChatMessage>,
     isGenerating: Boolean,
     viewModel: LlmViewModel
 ) {
-    var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
     LaunchedEffect(messages.size) {
@@ -295,129 +338,167 @@ private fun ChatContent(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .imePadding()
+    if (messages.isEmpty()) {
+        LlmEmptyState()
+        return
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(messages, key = { it.id }) { message ->
-                ChatBubble(message)
-            }
-        }
-
-        AnimatedVisibility(
-            visible = isGenerating,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                OutlinedButton(
-                    onClick = viewModel::cancelGeneration,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                ) {
-                    Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Text("  Stop", style = MaterialTheme.typography.labelMedium)
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.Bottom
-        ) {
-            OutlinedTextField(
-                value = inputText,
-                onValueChange = { inputText = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Message") },
-                maxLines = 4,
-                shape = RoundedCornerShape(24.dp)
-            )
-            IconButton(
-                onClick = {
-                    viewModel.sendMessage(inputText.trim())
-                    inputText = ""
-                },
-                enabled = inputText.isNotBlank() && !isGenerating
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
-            }
+        items(messages, key = { it.id }) { message ->
+            LlmChatBubble(message)
         }
     }
 }
 
 @Composable
-private fun ChatBubble(message: ChatMessage) {
+private fun LlmChatBubble(message: ChatMessage) {
     val isUser = message.role == Role.USER
+
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
     ) {
-        Surface(
-            shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isUser) 16.dp else 4.dp,
-                bottomEnd = if (isUser) 4.dp else 16.dp
-            ),
-            color = if (isUser) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.widthIn(max = 300.dp)
+        if (!isUser) {
+            // Robot avatar
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .background(SpaceCard, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SmartToy,
+                    contentDescription = null,
+                    tint = Amber,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+        }
+
+        Column(
+            modifier = Modifier.widthIn(max = 300.dp),
+            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
         ) {
-            val displayText = if (message.isStreaming && message.text.isEmpty()) "▌"
-                              else if (message.isStreaming) message.text + " ▌"
-                              else message.text
-            Text(
-                text = displayText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isUser) MaterialTheme.colorScheme.onPrimary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+            Surface(
+                shape = RoundedCornerShape(
+                    topStart = 16.dp,
+                    topEnd = 16.dp,
+                    bottomStart = if (isUser) 16.dp else 4.dp,
+                    bottomEnd = if (isUser) 4.dp else 16.dp
+                ),
+                color = if (isUser) Amber else SpaceCard
+            ) {
+                val displayText = if (message.isStreaming && message.text.isEmpty()) "▌"
+                                  else if (message.isStreaming) message.text + " ▌"
+                                  else message.text
+                Text(
+                    text = displayText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (isUser) Black else White,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                )
+            }
+
+            if (!isUser && !message.isStreaming && message.text.isNotEmpty()) {
+                Spacer(Modifier.height(3.dp))
+                val timeStr = formatTimestamp(message.timestampMs)
+                val tokenStr = if (message.tokenCount > 0) "· ${message.tokenCount} tokens" else ""
+                Text(
+                    text = "$timeStr $tokenStr".trim(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Muted
+                )
+            }
+        }
+    }
+}
+
+// ── Input bar ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun LlmInputBar(
+    isGenerating: Boolean,
+    onSend: (String) -> Unit
+) {
+    var inputText by remember { mutableStateOf("") }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SpaceCard)
+            .border(
+                width = 1.dp,
+                color = SpaceLine,
+                shape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp)
+            )
+            .padding(12.dp)
+            .imePadding(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedTextField(
+            value = inputText,
+            onValueChange = { inputText = it },
+            placeholder = {
+                Text(
+                    "Type a message or command...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Muted
+                )
+            },
+            modifier = Modifier.weight(1f),
+            maxLines = 4,
+            shape = RoundedCornerShape(10.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Amber,
+                unfocusedBorderColor = SpaceLine,
+                focusedTextColor = White,
+                unfocusedTextColor = White,
+                cursorColor = Amber,
+                focusedPlaceholderColor = Muted,
+                unfocusedPlaceholderColor = Muted
+            )
+        )
+        Spacer(Modifier.width(8.dp))
+        val canSend = inputText.isNotBlank() && !isGenerating
+        IconButton(
+            onClick = {
+                if (canSend) {
+                    onSend(inputText.trim())
+                    inputText = ""
+                }
+            },
+            modifier = Modifier
+                .size(48.dp)
+                .background(
+                    color = if (canSend) Amber else SpaceCard,
+                    shape = RoundedCornerShape(10.dp)
+                )
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.Send,
+                contentDescription = "Send",
+                tint = if (canSend) Black else Muted
             )
         }
     }
 }
 
-// ── Shared model preview card ─────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-@Composable
-private fun ModelPreviewCard(model: LlmModelInfo) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        tonalElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = model.name,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "~${model.sizeBytes / 1_000_000} MB · ${model.quantization} · ${model.parameters}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = model.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
+private fun formatTimestamp(epochMs: Long): String {
+    if (epochMs <= 0L) return ""
+    // Simple HH:MM display using epoch arithmetic (no platform date APIs)
+    val totalSeconds = epochMs / 1000L
+    val hours = (totalSeconds / 3600L) % 24L
+    val minutes = (totalSeconds / 60L) % 60L
+    val h = hours.toString().padStart(2, '0')
+    val m = minutes.toString().padStart(2, '0')
+    return "$h:$m"
 }

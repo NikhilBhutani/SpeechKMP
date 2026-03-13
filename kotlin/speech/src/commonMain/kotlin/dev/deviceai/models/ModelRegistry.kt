@@ -66,7 +66,7 @@ object ModelRegistry {
         val http = HttpFileDownloader(client, config, fs)
         this.downloader = ModelDownloader(
             listOf(
-                WhisperDownloadStrategy(http, fs, paths, store),
+                createWhisperDownloadStrategy(http, fs, paths, store),
                 PiperDownloadStrategy(http, fs, paths, store)
             )
         )

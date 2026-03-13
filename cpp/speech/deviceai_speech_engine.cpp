@@ -28,6 +28,7 @@
 #include <cstdio>
 #include <fstream>
 #include <sstream>
+#include <cctype>
 #include <algorithm>
 #include <chrono>
 #include <memory>
@@ -392,7 +393,21 @@ static std::string run_transcription(
     struct whisper_full_params params = g_stt_params;
     int auto_ctx = (static_cast<int>(audio.size()) + 319) / 320;
     params.audio_ctx = std::min(auto_ctx, 1500);
-    STT_LOGD("audio_ctx=%d (%.2fs after VAD)", params.audio_ctx, audio_sec);
+
+    // Cap the text decoder token budget proportional to actual audio duration.
+    //
+    // Root cause of repetition loops: the decoder generates up to n_text_ctx=448
+    // tokens regardless of audio length. When it hallucinates a phrase loop, it
+    // fills ALL 448 tokens before stopping — then entropy_thold retries at higher
+    // temperatures, each also generating the full budget (5 retries × 448 = 2240
+    // tokens total). That is why short audio produces 10-second inference spikes.
+    //
+    // English speech ≈ 2.5 words/sec × 1.3 tokens/word ≈ 3.5 tokens/sec.
+    // We allow 8× headroom (28 tokens/sec) for pauses, punctuation, mixed input.
+    // No hard floor — for very short audio keep budget tight. Cap at 220.
+    params.max_tokens = std::min(220, std::max(8, static_cast<int>(audio_sec * 28.0f)));
+
+    STT_LOGD("audio_ctx=%d max_tokens=%d (%.2fs after VAD)", params.audio_ctx, params.max_tokens, audio_sec);
 
     // Fresh state per call — prevents result_all accumulation across calls.
     struct whisper_state *state = whisper_init_state(g_stt_ctx);
@@ -419,6 +434,13 @@ static std::string run_transcription(
     for (int i = 0; i < n_seg; i++) {
         if (g_stt_cancel.load()) break;
 
+        // Skip segments where whisper is confident there was no speech.
+        float no_speech_prob = whisper_full_get_segment_no_speech_prob_from_state(state, i);
+        if (no_speech_prob > 0.8f) {
+            STT_LOGD("Skipping segment %d: no_speech_prob=%.2f", i, no_speech_prob);
+            continue;
+        }
+
         const char *text = whisper_full_get_segment_text_from_state(state, i);
         int64_t     t_s0 = whisper_full_get_segment_t0_from_state(state, i) * 10; // cs → ms
         int64_t     t_s1 = whisper_full_get_segment_t1_from_state(state, i) * 10;
@@ -433,6 +455,32 @@ static std::string run_transcription(
     }
 
     whisper_free_state(state);
+
+    // Physical speech rate check: if the output has more words than a human
+    // could physically speak in the available audio, it is hallucination.
+    //
+    // Human speech ceiling: ~6 words/sec (very fast). We allow 10 words/sec
+    // (67% above ceiling) as headroom for fast speakers + short words.
+    // For 1.14s audio, that means ≤11 words max. "nice nice nice × 28" in
+    // 1.14s = 24.5 wps → definitively impossible → discard.
+    //
+    // This is a duration constraint, not a content filter. It does not strip
+    // or alter legitimate speech — it rejects outputs that cannot be real.
+    {
+        int word_count = 0;
+        bool in_word = false;
+        for (unsigned char c : full_text) {
+            if (std::isspace(c)) { in_word = false; }
+            else if (!in_word)  { in_word = true; word_count++; }
+        }
+        const float max_words_per_sec = 10.0f;
+        if (audio_sec > 0.0f && word_count > static_cast<int>(audio_sec * max_words_per_sec)) {
+            STT_LOGD("Rejecting hallucination: %d words in %.2fs (>%.0f wps limit) — discarded",
+                     word_count, audio_sec, max_words_per_sec);
+            return "";
+        }
+    }
+
     STT_LOGD("Transcribed %d segments: \"%s\"", n_seg, full_text.c_str());
     return full_text;
 }
@@ -488,6 +536,16 @@ int dai_stt_init(
     g_stt_params.print_progress   = false;
     g_stt_params.print_realtime   = false;
     g_stt_params.print_timestamps = false;
+    // Suppress non-speech tokens (music notes, laughter, etc.) to prevent
+    // whisper-tiny from looping on them when audio is short or ambiguous.
+    g_stt_params.suppress_nst     = true;
+    // Temperature fallback: if greedy gets stuck in a repetition loop
+    // (low entropy), increment temperature and retry.
+    g_stt_params.temperature_inc  = 0.2f;
+    g_stt_params.entropy_thold    = 2.4f;
+    // Reject segments where average token log-probability is too low.
+    // Default -1.0f is very permissive; -0.6f filters near-silence garbage.
+    g_stt_params.logprob_thold    = -0.6f;
 
     STT_LOGI("Initialized: %s (lang=%s vad=%d gpu=%d threads=%d)",
              model_path, g_stt_language.c_str(), use_vad, use_gpu, max_threads);

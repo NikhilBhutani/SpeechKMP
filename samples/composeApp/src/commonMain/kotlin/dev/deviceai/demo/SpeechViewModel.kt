@@ -2,9 +2,6 @@ package dev.deviceai.demo
 
 import dev.deviceai.SpeechBridge
 import dev.deviceai.SttConfig
-import dev.deviceai.models.DownloadProgress
-import dev.deviceai.models.ModelRegistry
-import dev.deviceai.models.WhisperSize
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,13 +14,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val TARGET_MODEL_ID = "ggml-tiny.en.bin"
-
 // ── Loading / init state ──────────────────────────────────────────────────────
 
 sealed class LoadingState {
     object Initializing : LoadingState()
-    data class Downloading(val progress: DownloadProgress) : LoadingState()
     object Ready : LoadingState()
     data class Error(val message: String) : LoadingState()
 }
@@ -51,55 +45,18 @@ class SpeechViewModel(private val audioRecorder: AudioRecorder) {
     val recordingState: StateFlow<RecordingState> = _recordingState.asStateFlow()
 
     /**
-     * Kick off model discovery + download then initialize the STT engine.
-     * Safe to call multiple times — no-ops if already Ready.
+     * Initialize the STT engine with the provided model path.
      * [platformInit] runs first on IO; Android uses it for PlatformStorage.initialize().
+     * Safe to call multiple times — no-ops if already Ready.
      */
-    fun initialize(platformInit: () -> Unit = {}) {
+    fun initialize(modelPath: String, platformInit: () -> Unit = {}) {
         if (_loadingState.value is LoadingState.Ready) return
 
         scope.launch {
+            _loadingState.value = LoadingState.Initializing
             withContext(Dispatchers.IO) { platformInit() }
-
-            ModelRegistry.initialize()
-
-            // Already downloaded?
-            val existing = ModelRegistry.getLocalModel(TARGET_MODEL_ID)
-            if (existing != null) {
-                onModelReady(existing.modelPath)
-                return@launch
-            }
-
-            // Discover from HuggingFace catalog
-            val models = try {
-                ModelRegistry.getWhisperModels()
-            } catch (e: Exception) {
-                _loadingState.value = LoadingState.Error("Cannot reach model server: ${e.message}")
-                return@launch
-            }
-
-            val target = models.firstOrNull { it.id == TARGET_MODEL_ID }
-                ?: models.firstOrNull { it.size == WhisperSize.TINY && it.isEnglishOnly }
-
-            if (target == null) {
-                _loadingState.value = LoadingState.Error("Whisper Tiny model not found in catalog.")
-                return@launch
-            }
-
-            val result = ModelRegistry.download(target) { progress ->
-                _loadingState.value = LoadingState.Downloading(progress)
-            }
-
-            result.fold(
-                onSuccess = { local -> onModelReady(local.modelPath) },
-                onFailure = { e -> _loadingState.value = LoadingState.Error("Download failed: ${e.message}") }
-            )
+            onModelReady(modelPath)
         }
-    }
-
-    fun retryInitialize(platformInit: () -> Unit = {}) {
-        _loadingState.value = LoadingState.Initializing
-        initialize(platformInit)
     }
 
     // ── Recording ─────────────────────────────────────────────────────────────

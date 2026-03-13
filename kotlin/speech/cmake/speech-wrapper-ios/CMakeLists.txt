@@ -68,6 +68,7 @@ endif()
 
 add_library(speech_static STATIC
     ${ENGINE_DIR}/deviceai_speech_engine.cpp
+    ${ENGINE_DIR}/zip_extract.cpp
 )
 
 target_include_directories(speech_static PRIVATE
@@ -86,13 +87,14 @@ if(WHISPER_FOUND AND TARGET whisper)
     target_link_libraries(speech_static whisper)
 endif()
 
-# iOS frameworks
+# iOS frameworks + system libz (for zip_extract.cpp)
 target_link_libraries(speech_static
     "-framework Foundation"
     "-framework Accelerate"
     "-framework Metal"
     "-framework MetalKit"
     "-framework CoreML"
+    z
 )
 
 find_package(Threads REQUIRED)
