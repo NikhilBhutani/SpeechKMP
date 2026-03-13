@@ -60,8 +60,9 @@ JNIEXPORT jboolean JNICALL
 Java_dev_deviceai_SpeechBridge_nativeInitTts(
     JNIEnv *env, jobject thiz,
     jstring modelPath,
-    jstring configPath,
-    jstring espeakDataPath,
+    jstring tokensPath,
+    jstring dataDir,
+    jstring voicesPath,
     jint speakerId,
     jfloat speechRate,
     jint sampleRate,
