@@ -360,6 +360,8 @@ void dai_llm_generate_stream(
         if (on_error) on_error(msg.c_str(), user_data);
         return;
     }
+    // TEMP DEBUG: log first 300 chars of prompt to verify template application
+    DAI_LOGD("[DBG] prompt_len=%zu prefix=%.300s", prompt.size(), prompt.c_str());
 
     do_generate(
         prompt, max_tokens, temperature, top_p, top_k, repeat_penalty,

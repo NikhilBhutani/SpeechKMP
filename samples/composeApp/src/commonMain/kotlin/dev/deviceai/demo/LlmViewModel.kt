@@ -117,9 +117,13 @@ class LlmViewModel {
         _tokensPerSec.value = 0f
         _latencyMs.value = 0L
 
-        // Build a clean LlmMessage list from conversation history up to and including
-        // the new user message. No encoding hacks — native side receives structured arrays.
-        val llmMessages = _messages.value
+        // Build a clean LlmMessage list: system prompt first, then conversation history
+        // up to and including the new user message.
+        val systemMessage = LlmMessage(
+            role = LlmRole.SYSTEM,
+            content = "You are a helpful assistant."
+        )
+        val historyMessages = _messages.value
             .filter { it.id <= userMsg.id }
             .map { msg ->
                 LlmMessage(
@@ -127,6 +131,7 @@ class LlmViewModel {
                     content = msg.text
                 )
             }
+        val llmMessages = listOf(systemMessage) + historyMessages
 
         val genStartMs = currentTimeMs()
         var tokenCount = 0

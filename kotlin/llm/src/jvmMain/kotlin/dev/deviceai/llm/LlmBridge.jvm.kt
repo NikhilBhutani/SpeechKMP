@@ -10,12 +10,12 @@ actual object LlmBridge {
     actual fun shutdown() = LlmJniEngine.shutdown()
     actual fun generate(messages: List<LlmMessage>, config: LlmGenConfig) =
         LlmJniEngine.generate(
-            if (config.ragStore != null) RagAugmentor.augment(messages, config) else messages,
+            if (config.enableRag && config.ragStore != null) RagAugmentor.augment(messages, config) else messages,
             config,
         )
     actual fun generateStream(messages: List<LlmMessage>, config: LlmGenConfig): Flow<String> =
         LlmJniEngine.generateStream(
-            if (config.ragStore != null) RagAugmentor.augment(messages, config) else messages,
+            if (config.enableRag && config.ragStore != null) RagAugmentor.augment(messages, config) else messages,
             config,
         )
     actual fun cancelGeneration() = LlmJniEngine.cancelGeneration()

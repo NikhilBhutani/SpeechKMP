@@ -11,9 +11,10 @@ import dev.deviceai.llm.rag.RagRetriever
  * @param topP               Nucleus sampling probability threshold (default 0.9)
  * @param topK               Top-K sampling limit (default 40)
  * @param repeatPenalty      Penalty for repeating tokens (default 1.1)
- * @param ragStore           Optional retriever for offline RAG. When set, the SDK
- *                           retrieves relevant chunks and injects them into the system
- *                           prompt before every generation call. Default null (disabled).
+ * @param enableRag          Explicitly opt in to RAG augmentation (default false).
+ *                           RAG only activates when this is true AND [ragStore] is set.
+ * @param ragStore           Retriever for offline RAG. Providing a store alone does NOT
+ *                           activate RAG — [enableRag] must also be true.
  * @param ragTopK            Number of chunks to retrieve and inject (default 3).
  * @param ragPromptTemplate  System prompt template for injected context. Must contain
  *                           the placeholder `{context}` which is replaced with the
@@ -27,6 +28,7 @@ data class LlmGenConfig(
     val repeatPenalty: Float = 1.1f,
 
     // ── RAG ──────────────────────────────────────────────────────────
+    val enableRag: Boolean = false,
     val ragStore: RagRetriever? = null,
     val ragTopK: Int = 3,
     val ragPromptTemplate: String = DEFAULT_RAG_TEMPLATE,

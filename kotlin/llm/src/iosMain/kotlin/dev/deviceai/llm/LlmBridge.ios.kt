@@ -26,7 +26,7 @@ actual object LlmBridge {
     actual fun shutdown() = dai_llm_shutdown()
 
     actual fun generate(messages: List<LlmMessage>, config: LlmGenConfig): LlmResult {
-        val augmented = if (config.ragStore != null) RagAugmentor.augment(messages, config) else messages
+        val augmented = if (config.enableRag && config.ragStore != null) RagAugmentor.augment(messages, config) else messages
         var text = ""
         val elapsed = measureTime {
             memScoped {
@@ -55,7 +55,7 @@ actual object LlmBridge {
 
     actual fun generateStream(messages: List<LlmMessage>, config: LlmGenConfig): Flow<String> =
         channelFlow {
-            val augmented = if (config.ragStore != null) RagAugmentor.augment(messages, config) else messages
+            val augmented = if (config.enableRag && config.ragStore != null) RagAugmentor.augment(messages, config) else messages
             val channel: SendChannel<String> = this
             val ref = StableRef.create(channel)
 
