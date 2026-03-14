@@ -22,6 +22,7 @@ class MainActivity : ComponentActivity() {
         // Must run before ModelRegistry.initialize() which is triggered lazily
         // inside SpeechViewModel.initialize() from HomeScreen's LaunchedEffect.
         PlatformStorage.initialize(this)
+        AppPrefs.init(this)
 
         // Request microphone access upfront so it's ready when the user taps Record.
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)

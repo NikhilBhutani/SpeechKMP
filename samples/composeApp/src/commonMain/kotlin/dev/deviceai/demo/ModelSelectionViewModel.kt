@@ -127,17 +127,17 @@ class ModelSelectionViewModel {
             }
             _chatModels.value = initialChat
 
-            // Auto-select first downloaded voice model
-            val firstVoice = initialVoice.firstOrNull { it.isDownloaded }
-            if (firstVoice != null) {
-                activateVoice(firstVoice.id)
-            }
+            // Restore last-used voice model, fall back to first downloaded
+            val savedVoiceId = AppPrefs.getString(PREF_ACTIVE_VOICE_ID)
+            val voiceToActivate = initialVoice.firstOrNull { it.id == savedVoiceId && it.isDownloaded }
+                ?: initialVoice.firstOrNull { it.isDownloaded }
+            if (voiceToActivate != null) activateVoice(voiceToActivate.id)
 
-            // Auto-select first downloaded chat model
-            val firstChat = initialChat.firstOrNull { it.isDownloaded }
-            if (firstChat != null) {
-                activateChat(firstChat.id)
-            }
+            // Restore last-used chat model, fall back to first downloaded
+            val savedChatId = AppPrefs.getString(PREF_ACTIVE_CHAT_ID)
+            val chatToActivate = initialChat.firstOrNull { it.id == savedChatId && it.isDownloaded }
+                ?: initialChat.firstOrNull { it.isDownloaded }
+            if (chatToActivate != null) activateChat(chatToActivate.id)
         }
     }
 
@@ -238,6 +238,7 @@ class ModelSelectionViewModel {
         _voiceModels.value = _voiceModels.value.map { card ->
             card.copy(isActive = card.id == id)
         }
+        AppPrefs.putString(PREF_ACTIVE_VOICE_ID, id)
     }
 
     private fun activateChat(id: String) {
@@ -247,6 +248,7 @@ class ModelSelectionViewModel {
         _chatModels.value = _chatModels.value.map { card ->
             card.copy(isActive = card.id == id)
         }
+        AppPrefs.putString(PREF_ACTIVE_CHAT_ID, id)
     }
 
     private fun updateVoiceCard(id: String, transform: (ModelCardState) -> ModelCardState) {
