@@ -333,6 +333,33 @@ static bool apply_vad(std::vector<float> &audio) {
 // MARK: - STT core logic (internal, no JNI/FFI types)
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Escape a string for embedding inside a JSON double-quoted value.
+// Handles the six characters that JSON requires escaping plus control chars.
+static std::string json_escape(const std::string &s) {
+    std::string out;
+    out.reserve(s.size());
+    for (unsigned char c : s) {
+        switch (c) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\n': out += "\\n";  break;
+            case '\r': out += "\\r";  break;
+            case '\t': out += "\\t";  break;
+            default:
+                if (c < 0x20) {
+                    // Other control characters as \uXXXX
+                    char buf[7];
+                    snprintf(buf, sizeof(buf), "\\u%04x", c);
+                    out += buf;
+                } else {
+                    out += static_cast<char>(c);
+                }
+                break;
+        }
+    }
+    return out;
+}
+
 /**
  * Build JSON result string from transcription segments.
  * Schema: { "text": "...", "language": "en", "durationMs": 1234,
@@ -345,14 +372,14 @@ static std::string build_result_json(
     int64_t                                                       duration_ms
 ) {
     std::ostringstream j;
-    j << "{\"text\":\"" << text << "\""
-      << ",\"language\":\"" << language << "\""
+    j << "{\"text\":\"" << json_escape(text) << "\""
+      << ",\"language\":\"" << json_escape(language) << "\""
       << ",\"durationMs\":" << duration_ms
       << ",\"segments\":[";
 
     for (size_t i = 0; i < segments.size(); i++) {
         if (i > 0) j << ",";
-        j << "{\"text\":\"" << std::get<0>(segments[i]) << "\""
+        j << "{\"text\":\"" << json_escape(std::get<0>(segments[i])) << "\""
           << ",\"startMs\":" << std::get<1>(segments[i])
           << ",\"endMs\":"   << std::get<2>(segments[i])
           << "}";
