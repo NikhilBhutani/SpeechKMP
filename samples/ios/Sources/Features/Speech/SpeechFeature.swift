@@ -1,5 +1,4 @@
 import ComposableArchitecture
-import DeviceAiStt
 
 @Reducer
 struct SpeechFeature {
@@ -15,6 +14,7 @@ struct SpeechFeature {
         var errorMessage: String? = nil
     }
 
+    /// Presentation-layer display model for a segment (wraps domain type).
     struct TranscriptionSegment: Equatable, Identifiable {
         let id = UUID()
         let text: String
@@ -26,12 +26,12 @@ struct SpeechFeature {
         case recordButtonTapped
         case recordingStarted
         case recordingStopped([Float])
-        case transcriptionSucceeded(TranscriptionResult)
+        case transcriptionSucceeded(AppTranscriptionResult)
         case transcriptionFailed(String)
         case clearTapped
     }
 
-    @Dependency(\.speechClient) var speechClient
+    @Dependency(\.speechUseCase) var speechUseCase
 
     var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -45,14 +45,14 @@ struct SpeechFeature {
                 if state.isRecording {
                     state.isRecording = false
                     return .run { send in
-                        let samples = await speechClient.stopRecording()
+                        let samples = await speechUseCase.stopRecording()
                         await send(.recordingStopped(samples))
                     }
                 } else {
                     state.errorMessage = nil
                     state.isRecording  = true
                     return .run { send in
-                        await speechClient.startRecording()
+                        await speechUseCase.startRecording()
                         await send(.recordingStarted)
                     }
                 }
@@ -65,7 +65,7 @@ struct SpeechFeature {
                 state.isTranscribing = true
                 return .run { [modelPath] send in
                     do {
-                        let result = try await speechClient.transcribe(samples, modelPath)
+                        let result = try await speechUseCase.transcribe(samples, modelPath)
                         await send(.transcriptionSucceeded(result))
                     } catch {
                         await send(.transcriptionFailed(error.localizedDescription))

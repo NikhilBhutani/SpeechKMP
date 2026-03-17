@@ -1,5 +1,4 @@
 import ComposableArchitecture
-import DeviceAiLlm
 
 @Reducer
 struct ChatFeature {
@@ -11,7 +10,7 @@ struct ChatFeature {
         var messages: [ChatMessage] = []
         var inputText: String = ""
         var isGenerating: Bool = false
-        var streamingText: String = ""      // accumulates current token stream
+        var streamingText: String = ""
         var errorMessage: String? = nil
     }
 
@@ -25,7 +24,7 @@ struct ChatFeature {
         case cancelTapped
     }
 
-    @Dependency(\.chatClient) var chatClient
+    @Dependency(\.chatUseCase) var chatUseCase
 
     var body: some ReducerOf<Self> {
         BindingReducer()
@@ -49,7 +48,7 @@ struct ChatFeature {
 
                 return .run { [modelPath] send in
                     do {
-                        for try await token in await chatClient.send(text, modelPath) {
+                        for try await token in await chatUseCase.send(text, modelPath) {
                             await send(.tokenReceived(token))
                         }
                         await send(.generationFinished)
@@ -68,7 +67,7 @@ struct ChatFeature {
                     state.messages.append(ChatMessage(role: .assistant, text: state.streamingText))
                 }
                 state.streamingText = ""
-                state.isGenerating   = false
+                state.isGenerating  = false
                 return .none
 
             case .generationFailed(let msg):
@@ -81,15 +80,13 @@ struct ChatFeature {
                 state.messages      = []
                 state.streamingText = ""
                 state.errorMessage  = nil
-                return .run { _ in await chatClient.clear() }
+                return .run { _ in await chatUseCase.clear() }
 
             case .cancelTapped:
                 state.isGenerating  = false
                 state.streamingText = ""
-                return .merge(
-                    .cancel(id: CancelID.generation),
-                    .run { _ in await chatClient.cancel() }
-                )
+                chatUseCase.cancel()
+                return .cancel(id: CancelID.generation)
 
             case .binding:
                 return .none
@@ -100,7 +97,7 @@ struct ChatFeature {
     private enum CancelID { case generation }
 }
 
-// MARK: - Model
+// MARK: - Presentation model
 
 struct ChatMessage: Equatable, Identifiable {
     let id = UUID()

@@ -2,52 +2,37 @@ import ComposableArchitecture
 import AVFoundation
 import DeviceAiStt
 
-// MARK: - Dependency
+// MARK: - DependencyKey (Data → Domain bridge)
 
-struct SpeechClient: Sendable {
-    var startRecording: @Sendable () async -> Void
-    var stopRecording:  @Sendable () async -> [Float]
-    /// Transcribe PCM samples using the model at `modelPath`.
-    var transcribe:     @Sendable ([Float], String) async throws -> TranscriptionResult
-}
+extension SpeechUseCase: DependencyKey {
+    static let liveValue: SpeechUseCase = {
+        let recorder = AudioRecorder()
+        let cache    = SttSessionCache()
 
-extension SpeechClient: DependencyKey {
-    static let liveValue: SpeechClient = {
-        let recorder     = AudioRecorder()
-        let sessionCache = SttSessionCache()
-
-        return SpeechClient(
+        return SpeechUseCase(
             startRecording: { await recorder.start() },
             stopRecording:  { await recorder.stop() },
-            transcribe: { samples, modelPath in
-                let session = try await sessionCache.session(for: modelPath)
-                return try await session.transcribe(samples: samples)
+            transcribe: { samples, path in
+                let session = try await cache.session(for: path)
+                let result  = try await session.transcribe(samples: samples)
+                return result.toDomain()
             }
         )
     }()
 
-    static let previewValue = SpeechClient(
+    static let previewValue = SpeechUseCase(
         startRecording: { },
         stopRecording:  { Array(repeating: 0, count: 16_000) },
-        transcribe:     { _, _ in
-            TranscriptionResult(
-                text: "Preview transcription — runs fully on-device with Whisper.",
-                segments: [],
-                language: "en",
-                durationMs: 1000
+        transcribe: { _, _ in
+            AppTranscriptionResult(
+                text: "Preview transcription — runs on-device with Whisper.",
+                segments: [], language: "en", durationMs: 1000
             )
         }
     )
 }
 
-extension DependencyValues {
-    var speechClient: SpeechClient {
-        get { self[SpeechClient.self] }
-        set { self[SpeechClient.self] = newValue }
-    }
-}
-
-// MARK: - Session cache (re-uses session while model path is unchanged)
+// MARK: - STT session cache
 
 private actor SttSessionCache {
     private var session: SttSession?
@@ -62,7 +47,7 @@ private actor SttSessionCache {
     }
 }
 
-// MARK: - Audio recorder (AVAudioEngine-based, 16 kHz mono float32)
+// MARK: - Audio recorder (AVAudioEngine, 16 kHz mono float32)
 
 private actor AudioRecorder {
     private var engine:     AVAudioEngine?
@@ -100,10 +85,17 @@ private actor AudioRecorder {
     private func append(_ frame: [Float]) { samples.append(contentsOf: frame) }
 }
 
-// MARK: - localPath helper
+// MARK: - SDK → Domain mapping
 
-private extension WhisperModelInfo {
-    var localPathString: String {
-        DeviceAI.stt.modelManager.localPath(for: self).path
+private extension TranscriptionResult {
+    func toDomain() -> AppTranscriptionResult {
+        AppTranscriptionResult(
+            text: text,
+            segments: segments.map {
+                .init(text: $0.text, startMs: $0.startMs, endMs: $0.endMs)
+            },
+            language: language,
+            durationMs: durationMs
+        )
     }
 }

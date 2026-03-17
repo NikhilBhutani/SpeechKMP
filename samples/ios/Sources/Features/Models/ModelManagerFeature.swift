@@ -1,43 +1,33 @@
 import ComposableArchitecture
-import DeviceAiStt
-import DeviceAiLlm
-
-// MARK: - Feature
 
 @Reducer
 struct ModelManagerFeature {
 
     @ObservableState
     struct State: Equatable {
-        var sttEntries: IdentifiedArrayOf<SttEntry> = .init(
-            uniqueElements: WhisperCatalog.all.map { SttEntry(model: $0) }
-        )
-        var llmEntries: IdentifiedArrayOf<LlmEntry> = .init(
-            uniqueElements: LlmCatalog.all.map { LlmEntry(model: $0) }
-        )
-        /// ID of the currently selected (in-use) STT model.
+        var sttEntries: IdentifiedArrayOf<SttEntry> = []
+        var llmEntries: IdentifiedArrayOf<LlmEntry> = []
         var selectedSttId: String? = nil
-        /// ID of the currently selected (in-use) LLM model.
         var selectedLlmId: String? = nil
     }
 
-    // MARK: - Model entries
+    // MARK: - Presentation entries (wrap domain model + download status)
 
     struct SttEntry: Identifiable, Equatable {
         var id: String { model.id }
-        let model: WhisperModelInfo
+        let model: AppSttModel
         var downloadStatus: ModelDownloadStatus = .notDownloaded
     }
 
     struct LlmEntry: Identifiable, Equatable {
         var id: String { model.id }
-        let model: LlmModelInfo
+        let model: AppLlmModel
         var downloadStatus: ModelDownloadStatus = .notDownloaded
     }
 
     enum ModelDownloadStatus: Equatable {
         case notDownloaded
-        case downloading(Double)    // 0.0 – 1.0
+        case downloading(Double)
         case downloaded
     }
 
@@ -50,7 +40,6 @@ struct ModelManagerFeature {
         case sttSelectTapped(String)
         case llmSelectTapped(String)
 
-        // Internal — fed from async tasks
         case _sttStatusChecked(String, Bool)
         case _llmStatusChecked(String, Bool)
         case _sttProgress(String, Double)
@@ -60,7 +49,6 @@ struct ModelManagerFeature {
         case _llmCompleted(String)
         case _llmFailed(String)
 
-        // Delegate — consumed by MainFeature
         case delegate(Delegate)
         enum Delegate: Equatable {
             case sttModelSelected(path: String)
@@ -68,35 +56,45 @@ struct ModelManagerFeature {
         }
     }
 
-    // MARK: - Reducer
+    @Dependency(\.modelUseCase) var modelUseCase
 
     var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
 
-            // ── Check which models are already on disk ──────────────────────
+            // ── Populate catalogue + check which are already downloaded ────────
 
             case .appeared:
-                let sttModels = state.sttEntries.map(\.model)
-                let llmModels = state.llmEntries.map(\.model)
+                // Populate entries from catalogue (idempotent — skip if already populated)
+                if state.sttEntries.isEmpty {
+                    state.sttEntries = .init(
+                        uniqueElements: modelUseCase.allSttModels().map { SttEntry(model: $0) }
+                    )
+                }
+                if state.llmEntries.isEmpty {
+                    state.llmEntries = .init(
+                        uniqueElements: modelUseCase.allLlmModels().map { LlmEntry(model: $0) }
+                    )
+                }
+                let sttIds = state.sttEntries.map(\.id)
+                let llmIds = state.llmEntries.map(\.id)
                 return .merge(
-                    .run { send in
-                        for model in sttModels {
-                            let ok = await DeviceAI.stt.modelManager.isDownloaded(model)
-                            await send(._sttStatusChecked(model.id, ok))
+                    .run { [sttIds] send in
+                        for id in sttIds {
+                            let ok = await modelUseCase.isSttDownloaded(id)
+                            await send(._sttStatusChecked(id, ok))
                         }
                     },
-                    .run { send in
-                        for model in llmModels {
-                            let ok = await DeviceAI.llm.modelManager.isDownloaded(model)
-                            await send(._llmStatusChecked(model.id, ok))
+                    .run { [llmIds] send in
+                        for id in llmIds {
+                            let ok = await modelUseCase.isLlmDownloaded(id)
+                            await send(._llmStatusChecked(id, ok))
                         }
                     }
                 )
 
             case ._sttStatusChecked(let id, let downloaded):
                 state.sttEntries[id: id]?.downloadStatus = downloaded ? .downloaded : .notDownloaded
-                // Auto-select first downloaded STT model if none selected yet.
                 if downloaded, state.selectedSttId == nil {
                     return .send(.sttSelectTapped(id))
                 }
@@ -109,89 +107,76 @@ struct ModelManagerFeature {
                 }
                 return .none
 
-            // ── Downloads ───────────────────────────────────────────────────
+            // ── Downloads ──────────────────────────────────────────────────────
 
             case .sttDownloadTapped(let id):
-                guard let entry = state.sttEntries[id: id],
-                      entry.downloadStatus == .notDownloaded else { return .none }
+                guard state.sttEntries[id: id]?.downloadStatus == .notDownloaded else { return .none }
                 state.sttEntries[id: id]?.downloadStatus = .downloading(0)
-                let model = entry.model
-                return .run { send in
+                return .run { [id] send in
                     do {
-                        for try await progress in DeviceAI.stt.modelManager.download(model) {
-                            await send(._sttProgress(id, progress.fraction ?? 0))
+                        for try await fraction in modelUseCase.downloadStt(id) {
+                            await send(._sttProgress(id, fraction))
                         }
                         await send(._sttCompleted(id))
                     } catch {
                         await send(._sttFailed(id))
                     }
                 }
-                .cancellable(id: "stt-download-\(id)")
+                .cancellable(id: "stt-dl-\(id)")
 
             case .llmDownloadTapped(let id):
-                guard let entry = state.llmEntries[id: id],
-                      entry.downloadStatus == .notDownloaded else { return .none }
+                guard state.llmEntries[id: id]?.downloadStatus == .notDownloaded else { return .none }
                 state.llmEntries[id: id]?.downloadStatus = .downloading(0)
-                let model = entry.model
-                return .run { send in
+                return .run { [id] send in
                     do {
-                        for try await progress in DeviceAI.llm.modelManager.download(model) {
-                            await send(._llmProgress(id, progress.fraction ?? 0))
+                        for try await fraction in modelUseCase.downloadLlm(id) {
+                            await send(._llmProgress(id, fraction))
                         }
                         await send(._llmCompleted(id))
                     } catch {
                         await send(._llmFailed(id))
                     }
                 }
-                .cancellable(id: "llm-download-\(id)")
+                .cancellable(id: "llm-dl-\(id)")
 
-            case ._sttProgress(let id, let fraction):
-                state.sttEntries[id: id]?.downloadStatus = .downloading(fraction)
+            case ._sttProgress(let id, let f):
+                state.sttEntries[id: id]?.downloadStatus = .downloading(f)
                 return .none
 
             case ._sttCompleted(let id):
                 state.sttEntries[id: id]?.downloadStatus = .downloaded
-                // Auto-select if this is the first (or only) downloaded STT model.
-                let hasSelection = state.selectedSttId != nil
-                if !hasSelection {
-                    return .send(.sttSelectTapped(id))
-                }
+                if state.selectedSttId == nil { return .send(.sttSelectTapped(id)) }
                 return .none
 
             case ._sttFailed(let id):
                 state.sttEntries[id: id]?.downloadStatus = .notDownloaded
                 return .none
 
-            case ._llmProgress(let id, let fraction):
-                state.llmEntries[id: id]?.downloadStatus = .downloading(fraction)
+            case ._llmProgress(let id, let f):
+                state.llmEntries[id: id]?.downloadStatus = .downloading(f)
                 return .none
 
             case ._llmCompleted(let id):
                 state.llmEntries[id: id]?.downloadStatus = .downloaded
-                let hasSelection = state.selectedLlmId == nil
-                if hasSelection {
-                    return .send(.llmSelectTapped(id))
-                }
+                if state.selectedLlmId == nil { return .send(.llmSelectTapped(id)) }
                 return .none
 
             case ._llmFailed(let id):
                 state.llmEntries[id: id]?.downloadStatus = .notDownloaded
                 return .none
 
-            // ── Model selection ─────────────────────────────────────────────
+            // ── Selection ──────────────────────────────────────────────────────
 
             case .sttSelectTapped(let id):
-                guard let entry = state.sttEntries[id: id],
-                      entry.downloadStatus == .downloaded else { return .none }
+                guard state.sttEntries[id: id]?.downloadStatus == .downloaded else { return .none }
                 state.selectedSttId = id
-                let path = DeviceAI.stt.modelManager.localPath(for: entry.model).path
+                let path = modelUseCase.localSttPath(id)
                 return .send(.delegate(.sttModelSelected(path: path)))
 
             case .llmSelectTapped(let id):
-                guard let entry = state.llmEntries[id: id],
-                      entry.downloadStatus == .downloaded else { return .none }
+                guard state.llmEntries[id: id]?.downloadStatus == .downloaded else { return .none }
                 state.selectedLlmId = id
-                let path = DeviceAI.llm.modelManager.localPath(for: entry.model).path
+                let path = modelUseCase.localLlmPath(id)
                 return .send(.delegate(.llmModelSelected(path: path)))
 
             case .delegate:

@@ -1,8 +1,5 @@
 import SwiftUI
 import ComposableArchitecture
-import DeviceAiCore
-import DeviceAiStt
-import DeviceAiLlm
 
 struct ModelsView: View {
     @Bindable var store: StoreOf<ModelManagerFeature>
@@ -53,7 +50,6 @@ private struct SttModelRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Leading: name + size
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.model.displayName)
                     .font(.body)
@@ -61,10 +57,7 @@ private struct SttModelRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-
             Spacer()
-
-            // Trailing: status control
             ModelStatusControl(
                 status: entry.downloadStatus,
                 isInUse: isInUse,
@@ -105,9 +98,7 @@ private struct LlmModelRow: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
-
             Spacer()
-
             ModelStatusControl(
                 status: entry.downloadStatus,
                 isInUse: isInUse,
@@ -164,16 +155,5 @@ private struct ModelStatusControl: View {
                     .foregroundStyle(AppTheme.accent)
             }
         }
-    }
-}
-
-// MARK: - Helpers
-
-private extension ModelInfo {
-    var formattedSize: String {
-        let mb = Double(sizeBytes) / 1_048_576
-        return mb >= 1024
-            ? String(format: "%.1f GB", mb / 1024)
-            : String(format: "%.0f MB", mb)
     }
 }

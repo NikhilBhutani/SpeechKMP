@@ -1,34 +1,24 @@
 import ComposableArchitecture
 import DeviceAiLlm
 
-// MARK: - Dependency
+// MARK: - DependencyKey (Data → Domain bridge)
 
-struct ChatClient: Sendable {
-    /// Send `text` to the model at `modelPath`; returns a token stream.
-    var send:   @Sendable (String, String) async -> AsyncThrowingStream<String, Error>
-    var cancel: @Sendable () async -> Void
-    var clear:  @Sendable () async -> Void
-}
+extension ChatUseCase: DependencyKey {
+    static let liveValue: ChatUseCase = {
+        let cache = ChatSessionCache()
 
-extension ChatClient: DependencyKey {
-    static let liveValue: ChatClient = {
-        let sessionCache = ChatSessionCache()
-
-        return ChatClient(
-            send: { text, modelPath in
-                await sessionCache.send(text, modelPath: modelPath)
-            },
-            cancel: { await sessionCache.cancel() },
-            clear:  { await sessionCache.clearHistory() }
+        return ChatUseCase(
+            send: { text, modelPath in await cache.send(text, modelPath: modelPath) },
+            cancel: { Task { await cache.cancel() } },
+            clear:  { await cache.clearHistory() }
         )
     }()
 
-    static let previewValue = ChatClient(
+    static let previewValue = ChatUseCase(
         send: { text, _ in
             AsyncThrowingStream { c in
                 Task {
-                    let words = "I'm a preview response for: \(text)".split(separator: " ")
-                    for word in words {
+                    for word in "Preview response for: \(text)".split(separator: " ") {
                         try? await Task.sleep(for: .milliseconds(80))
                         c.yield(String(word) + " ")
                     }
@@ -41,14 +31,7 @@ extension ChatClient: DependencyKey {
     )
 }
 
-extension DependencyValues {
-    var chatClient: ChatClient {
-        get { self[ChatClient.self] }
-        set { self[ChatClient.self] = newValue }
-    }
-}
-
-// MARK: - Session cache (re-creates session when model changes)
+// MARK: - Chat session cache
 
 private actor ChatSessionCache {
     private var session: ChatSession?
@@ -71,9 +54,7 @@ private actor ChatSessionCache {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
-                    for try await token in await s.send(text) {
-                        continuation.yield(token)
-                    }
+                    for try await token in await s.send(text) { continuation.yield(token) }
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)
@@ -82,11 +63,6 @@ private actor ChatSessionCache {
         }
     }
 
-    func cancel() {
-        session?.cancel()
-    }
-
-    func clearHistory() async {
-        await session?.clearHistory()
-    }
+    func cancel() { session?.cancel() }
+    func clearHistory() async { await session?.clearHistory() }
 }
