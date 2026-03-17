@@ -1,34 +1,21 @@
-import ComposableArchitecture
 import DeviceAiLlm
 
-// MARK: - DependencyKey (Data → Domain bridge)
+// MARK: - Concrete implementation
 
-extension ChatUseCase: DependencyKey {
-    static let liveValue: ChatUseCase = {
-        let cache = ChatSessionCache()
+final class LiveChatRepository: ChatRepository {
+    private let cache = ChatSessionCache()
 
-        return ChatUseCase(
-            send: { text, modelPath in await cache.send(text, modelPath: modelPath) },
-            cancel: { Task { await cache.cancel() } },
-            clear:  { await cache.clearHistory() }
-        )
-    }()
+    func send(_ text: String, modelPath: String) async -> AsyncThrowingStream<String, Error> {
+        await cache.send(text, modelPath: modelPath)
+    }
 
-    static let previewValue = ChatUseCase(
-        send: { text, _ in
-            AsyncThrowingStream { c in
-                Task {
-                    for word in "Preview response for: \(text)".split(separator: " ") {
-                        try? await Task.sleep(for: .milliseconds(80))
-                        c.yield(String(word) + " ")
-                    }
-                    c.finish()
-                }
-            }
-        },
-        cancel: { },
-        clear:  { }
-    )
+    func cancel() {
+        Task { await cache.cancel() }
+    }
+
+    func clearHistory() async {
+        await cache.clearHistory()
+    }
 }
 
 // MARK: - Chat session cache

@@ -1,12 +1,11 @@
 import SwiftUI
-import ComposableArchitecture
 
 struct SpeechView: View {
-    let store: StoreOf<SpeechFeature>
+    @Bindable var viewModel: SpeechViewModel
 
     var body: some View {
         Group {
-            if store.modelPath == nil {
+            if viewModel.modelPath == nil {
                 noModelView
             } else {
                 mainContent
@@ -17,8 +16,8 @@ struct SpeechView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Clear") { store.send(.clearTapped) }
-                    .disabled(store.transcript.isEmpty && store.errorMessage == nil)
+                Button("Clear") { viewModel.clearTapped() }
+                    .disabled(viewModel.transcript.isEmpty && viewModel.errorMessage == nil)
             }
         }
     }
@@ -53,7 +52,7 @@ struct SpeechView: View {
     private var transcriptArea: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                if store.isTranscribing {
+                if viewModel.isTranscribing {
                     HStack(spacing: 10) {
                         ProgressView().tint(AppTheme.accent)
                         Text("Transcribing…")
@@ -62,15 +61,15 @@ struct SpeechView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                } else if !store.transcript.isEmpty {
-                    Text(store.transcript)
+                } else if !viewModel.transcript.isEmpty {
+                    Text(viewModel.transcript)
                         .font(.body)
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    if !store.segments.isEmpty {
+                    if !viewModel.segments.isEmpty {
                         Divider()
-                        ForEach(store.segments) { seg in
+                        ForEach(viewModel.segments) { seg in
                             HStack(alignment: .top, spacing: 8) {
                                 Text(formatMs(seg.startMs))
                                     .font(.caption.monospacedDigit())
@@ -83,7 +82,7 @@ struct SpeechView: View {
                         }
                     }
 
-                } else if let error = store.errorMessage {
+                } else if let error = viewModel.errorMessage {
                     Text(error)
                         .font(.callout)
                         .foregroundStyle(.red.opacity(0.85))
@@ -108,26 +107,26 @@ struct SpeechView: View {
 
     private var recordButton: some View {
         Button {
-            store.send(.recordButtonTapped)
+            viewModel.recordButtonTapped()
         } label: {
             ZStack {
                 Circle()
-                    .fill(store.isRecording ? Color.red : AppTheme.accent)
+                    .fill(viewModel.isRecording ? Color.red : AppTheme.accent)
                     .frame(width: 80, height: 80)
                     .shadow(
-                        color: (store.isRecording ? Color.red : AppTheme.accent).opacity(0.45),
-                        radius: store.isRecording ? 20 : 10
+                        color: (viewModel.isRecording ? Color.red : AppTheme.accent).opacity(0.45),
+                        radius: viewModel.isRecording ? 20 : 10
                     )
-                    .animation(.easeInOut(duration: 0.25), value: store.isRecording)
+                    .animation(.easeInOut(duration: 0.25), value: viewModel.isRecording)
 
-                Image(systemName: store.isRecording ? "stop.fill" : "mic.fill")
+                Image(systemName: viewModel.isRecording ? "stop.fill" : "mic.fill")
                     .font(.system(size: 30))
                     .foregroundStyle(.white)
             }
         }
-        .disabled(store.isTranscribing)
-        .scaleEffect(store.isRecording ? 1.08 : 1.0)
-        .animation(.spring(response: 0.3), value: store.isRecording)
+        .disabled(viewModel.isTranscribing)
+        .scaleEffect(viewModel.isRecording ? 1.08 : 1.0)
+        .animation(.spring(response: 0.3), value: viewModel.isRecording)
         .padding(.bottom, 16)
     }
 

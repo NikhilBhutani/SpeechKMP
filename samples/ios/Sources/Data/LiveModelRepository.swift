@@ -1,73 +1,68 @@
-import ComposableArchitecture
 import DeviceAiCore
 import DeviceAiStt
 import DeviceAiLlm
 
-// MARK: - DependencyKey (Data → Domain bridge)
+// MARK: - Concrete implementation
 
-extension ModelUseCase: DependencyKey {
-    static let liveValue = ModelUseCase(
-        allSttModels: { WhisperCatalog.all.map { $0.toDomain() } },
-        allLlmModels: { LlmCatalog.all.map { $0.toDomain() } },
+final class LiveModelRepository: ModelRepository {
 
-        isSttDownloaded: { id in
-            guard let m = WhisperCatalog.all.first(where: { $0.id == id }) else { return false }
-            return await DeviceAI.stt.modelManager.isDownloaded(m)
-        },
-        isLlmDownloaded: { id in
-            guard let m = LlmCatalog.all.first(where: { $0.id == id }) else { return false }
-            return await DeviceAI.llm.modelManager.isDownloaded(m)
-        },
+    func allSttModels() -> [AppSttModel] {
+        WhisperCatalog.all.map { $0.toDomain() }
+    }
 
-        downloadStt: { id in
-            guard let m = WhisperCatalog.all.first(where: { $0.id == id }) else {
-                return AsyncThrowingStream { $0.finish(throwing: ModelLookupError.notFound(id)) }
-            }
-            let stream = DeviceAI.stt.modelManager.download(m)
-            return AsyncThrowingStream { continuation in
-                Task {
-                    do {
-                        for try await p in stream { continuation.yield(p.fraction ?? 0) }
-                        continuation.finish()
-                    } catch { continuation.finish(throwing: error) }
-                }
-            }
-        },
-        downloadLlm: { id in
-            guard let m = LlmCatalog.all.first(where: { $0.id == id }) else {
-                return AsyncThrowingStream { $0.finish(throwing: ModelLookupError.notFound(id)) }
-            }
-            let stream = DeviceAI.llm.modelManager.download(m)
-            return AsyncThrowingStream { continuation in
-                Task {
-                    do {
-                        for try await p in stream { continuation.yield(p.fraction ?? 0) }
-                        continuation.finish()
-                    } catch { continuation.finish(throwing: error) }
-                }
-            }
-        },
+    func allLlmModels() -> [AppLlmModel] {
+        LlmCatalog.all.map { $0.toDomain() }
+    }
 
-        localSttPath: { id in
-            guard let m = WhisperCatalog.all.first(where: { $0.id == id }) else { return "" }
-            return DeviceAI.stt.modelManager.localPath(for: m).path
-        },
-        localLlmPath: { id in
-            guard let m = LlmCatalog.all.first(where: { $0.id == id }) else { return "" }
-            return DeviceAI.llm.modelManager.localPath(for: m).path
+    func isSttDownloaded(_ id: String) async -> Bool {
+        guard let m = WhisperCatalog.all.first(where: { $0.id == id }) else { return false }
+        return await DeviceAI.stt.modelManager.isDownloaded(m)
+    }
+
+    func isLlmDownloaded(_ id: String) async -> Bool {
+        guard let m = LlmCatalog.all.first(where: { $0.id == id }) else { return false }
+        return await DeviceAI.llm.modelManager.isDownloaded(m)
+    }
+
+    func downloadStt(_ id: String) -> AsyncThrowingStream<Double, Error> {
+        guard let m = WhisperCatalog.all.first(where: { $0.id == id }) else {
+            return AsyncThrowingStream { $0.finish(throwing: ModelLookupError.notFound(id)) }
         }
-    )
+        let stream = DeviceAI.stt.modelManager.download(m)
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    for try await p in stream { continuation.yield(p.fraction ?? 0) }
+                    continuation.finish()
+                } catch { continuation.finish(throwing: error) }
+            }
+        }
+    }
 
-    static let previewValue = ModelUseCase(
-        allSttModels:    { WhisperCatalog.all.map { $0.toDomain() } },
-        allLlmModels:    { LlmCatalog.all.map { $0.toDomain() } },
-        isSttDownloaded: { _ in false },
-        isLlmDownloaded: { _ in false },
-        downloadStt:     { _ in AsyncThrowingStream { $0.finish() } },
-        downloadLlm:     { _ in AsyncThrowingStream { $0.finish() } },
-        localSttPath:    { _ in "" },
-        localLlmPath:    { _ in "" }
-    )
+    func downloadLlm(_ id: String) -> AsyncThrowingStream<Double, Error> {
+        guard let m = LlmCatalog.all.first(where: { $0.id == id }) else {
+            return AsyncThrowingStream { $0.finish(throwing: ModelLookupError.notFound(id)) }
+        }
+        let stream = DeviceAI.llm.modelManager.download(m)
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    for try await p in stream { continuation.yield(p.fraction ?? 0) }
+                    continuation.finish()
+                } catch { continuation.finish(throwing: error) }
+            }
+        }
+    }
+
+    func localSttPath(_ id: String) -> String {
+        guard let m = WhisperCatalog.all.first(where: { $0.id == id }) else { return "" }
+        return DeviceAI.stt.modelManager.localPath(for: m).path
+    }
+
+    func localLlmPath(_ id: String) -> String {
+        guard let m = LlmCatalog.all.first(where: { $0.id == id }) else { return "" }
+        return DeviceAI.llm.modelManager.localPath(for: m).path
+    }
 }
 
 // MARK: - SDK → Domain mapping

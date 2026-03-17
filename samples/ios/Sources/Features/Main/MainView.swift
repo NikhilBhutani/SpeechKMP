@@ -1,36 +1,38 @@
 import SwiftUI
-import ComposableArchitecture
 
 struct MainView: View {
-    @Bindable var store: StoreOf<MainFeature>
+    @State private var selectedTab: Tab = .speech
+    @State private var isShowingModels = false
+
+    let speechVM: SpeechViewModel
+    let chatVM: ChatViewModel
+    let modelsVM: ModelsViewModel
+
+    enum Tab { case speech, chat }
 
     var body: some View {
-        TabView(selection: $store.selectedTab.sending(\.tabSelected)) {
-
+        TabView(selection: $selectedTab) {
             NavigationStack {
-                SpeechView(store: store.scope(state: \.speech, action: \.speech))
+                SpeechView(viewModel: speechVM)
                     .toolbar { modelsButton }
             }
             .tabItem {
-                Label("Speech", systemImage: store.selectedTab == .speech ? "mic.fill" : "mic")
+                Label("Speech", systemImage: selectedTab == .speech ? "mic.fill" : "mic")
             }
-            .tag(MainFeature.State.Tab.speech)
+            .tag(Tab.speech)
 
             NavigationStack {
-                ChatView(store: store.scope(state: \.chat, action: \.chat))
+                ChatView(viewModel: chatVM)
                     .toolbar { modelsButton }
             }
             .tabItem {
                 Label("Chat", systemImage: "bubble.left.and.bubble.right")
             }
-            .tag(MainFeature.State.Tab.chat)
+            .tag(Tab.chat)
         }
         .tint(AppTheme.accent)
-        .sheet(isPresented: Binding(
-            get: { store.isShowingModels },
-            set: { if !$0 { store.send(.modelsDismissed) } }
-        )) {
-            ModelsView(store: store.scope(state: \.modelManager, action: \.modelManager))
+        .sheet(isPresented: $isShowingModels) {
+            ModelsView(viewModel: modelsVM)
         }
     }
 
@@ -38,7 +40,8 @@ struct MainView: View {
     private var modelsButton: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Button {
-                store.send(.modelsButtonTapped)
+                modelsVM.loadIfNeeded()
+                isShowingModels = true
             } label: {
                 Image(systemName: "cpu")
                     .symbolRenderingMode(.hierarchical)

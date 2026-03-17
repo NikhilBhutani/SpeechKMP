@@ -1,35 +1,25 @@
-import ComposableArchitecture
 import AVFoundation
 import DeviceAiStt
 
-// MARK: - DependencyKey (Data → Domain bridge)
+// MARK: - Concrete implementation
 
-extension SpeechUseCase: DependencyKey {
-    static let liveValue: SpeechUseCase = {
-        let recorder = AudioRecorder()
-        let cache    = SttSessionCache()
+final class LiveSpeechRepository: SpeechRepository {
+    private let recorder = AudioRecorder()
+    private let cache    = SttSessionCache()
 
-        return SpeechUseCase(
-            startRecording: { await recorder.start() },
-            stopRecording:  { await recorder.stop() },
-            transcribe: { samples, path in
-                let session = try await cache.session(for: path)
-                let result  = try await session.transcribe(samples: samples)
-                return result.toDomain()
-            }
-        )
-    }()
+    func startRecording() async {
+        await recorder.start()
+    }
 
-    static let previewValue = SpeechUseCase(
-        startRecording: { },
-        stopRecording:  { Array(repeating: 0, count: 16_000) },
-        transcribe: { _, _ in
-            AppTranscriptionResult(
-                text: "Preview transcription — runs on-device with Whisper.",
-                segments: [], language: "en", durationMs: 1000
-            )
-        }
-    )
+    func stopRecording() async -> [Float] {
+        await recorder.stop()
+    }
+
+    func transcribe(_ samples: [Float], modelPath: String) async throws -> AppTranscriptionResult {
+        let session = try await cache.session(for: modelPath)
+        let result  = try await session.transcribe(samples: samples)
+        return result.toDomain()
+    }
 }
 
 // MARK: - STT session cache

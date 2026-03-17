@@ -1,19 +1,18 @@
 import SwiftUI
-import ComposableArchitecture
 
 struct ModelsView: View {
-    @Bindable var store: StoreOf<ModelManagerFeature>
+    var viewModel: ModelsViewModel
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    ForEach(store.sttEntries) { entry in
+                    ForEach(viewModel.sttEntries) { entry in
                         SttModelRow(
                             entry: entry,
-                            isInUse: store.selectedSttId == entry.id,
-                            onDownload: { store.send(.sttDownloadTapped(entry.id)) },
-                            onSelect:   { store.send(.sttSelectTapped(entry.id)) }
+                            isInUse: viewModel.selectedSttId == entry.id,
+                            onDownload: { viewModel.downloadStt(entry.id) },
+                            onSelect:   { viewModel.selectStt(entry.id) }
                         )
                     }
                 } header: {
@@ -21,12 +20,12 @@ struct ModelsView: View {
                 }
 
                 Section {
-                    ForEach(store.llmEntries) { entry in
+                    ForEach(viewModel.llmEntries) { entry in
                         LlmModelRow(
                             entry: entry,
-                            isInUse: store.selectedLlmId == entry.id,
-                            onDownload: { store.send(.llmDownloadTapped(entry.id)) },
-                            onSelect:   { store.send(.llmSelectTapped(entry.id)) }
+                            isInUse: viewModel.selectedLlmId == entry.id,
+                            onDownload: { viewModel.downloadLlm(entry.id) },
+                            onSelect:   { viewModel.selectLlm(entry.id) }
                         )
                     }
                 } header: {
@@ -35,7 +34,6 @@ struct ModelsView: View {
             }
             .navigationTitle("Models")
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear { store.send(.appeared) }
         }
     }
 }
@@ -43,7 +41,7 @@ struct ModelsView: View {
 // MARK: - STT row
 
 private struct SttModelRow: View {
-    let entry: ModelManagerFeature.SttEntry
+    let entry: ModelsViewModel.SttEntry
     let isInUse: Bool
     let onDownload: () -> Void
     let onSelect:   () -> Void
@@ -72,7 +70,7 @@ private struct SttModelRow: View {
 // MARK: - LLM row
 
 private struct LlmModelRow: View {
-    let entry: ModelManagerFeature.LlmEntry
+    let entry: ModelsViewModel.LlmEntry
     let isInUse: Bool
     let onDownload: () -> Void
     let onSelect:   () -> Void
@@ -113,7 +111,7 @@ private struct LlmModelRow: View {
 // MARK: - Shared status control
 
 private struct ModelStatusControl: View {
-    let status: ModelManagerFeature.ModelDownloadStatus
+    let status: ModelsViewModel.DownloadStatus
     let isInUse: Bool
     let onDownload: () -> Void
     let onSelect:   () -> Void

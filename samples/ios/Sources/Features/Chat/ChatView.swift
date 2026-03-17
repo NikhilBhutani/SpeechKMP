@@ -1,12 +1,11 @@
 import SwiftUI
-import ComposableArchitecture
 
 struct ChatView: View {
-    @Bindable var store: StoreOf<ChatFeature>
+    @Bindable var viewModel: ChatViewModel
 
     var body: some View {
         Group {
-            if store.modelPath == nil {
+            if viewModel.modelPath == nil {
                 noModelView
             } else {
                 mainContent
@@ -17,8 +16,8 @@ struct ChatView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Clear") { store.send(.clearTapped) }
-                    .disabled(store.messages.isEmpty && !store.isGenerating)
+                Button("Clear") { viewModel.clearTapped() }
+                    .disabled(viewModel.messages.isEmpty && !viewModel.isGenerating)
             }
         }
     }
@@ -53,23 +52,23 @@ struct ChatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    ForEach(store.messages) { msg in
+                    ForEach(viewModel.messages) { msg in
                         MessageBubble(message: msg)
                             .id(msg.id)
                     }
 
                     // Live streaming bubble
-                    if store.isGenerating {
+                    if viewModel.isGenerating {
                         MessageBubble(
                             message: ChatMessage(
                                 role: .assistant,
-                                text: store.streamingText.isEmpty ? "…" : store.streamingText
+                                text: viewModel.streamingText.isEmpty ? "…" : viewModel.streamingText
                             )
                         )
                         .id("streaming")
                     }
 
-                    if let error = store.errorMessage {
+                    if let error = viewModel.errorMessage {
                         Text(error)
                             .font(.caption)
                             .foregroundStyle(.red.opacity(0.8))
@@ -79,11 +78,11 @@ struct ChatView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .onChange(of: store.streamingText) { _, _ in
+            .onChange(of: viewModel.streamingText) { _, _ in
                 withAnimation { proxy.scrollTo("streaming", anchor: .bottom) }
             }
-            .onChange(of: store.messages.count) { _, _ in
-                if let last = store.messages.last {
+            .onChange(of: viewModel.messages.count) { _, _ in
+                if let last = viewModel.messages.last {
                     withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                 }
             }
@@ -94,28 +93,28 @@ struct ChatView: View {
 
     private var inputBar: some View {
         HStack(spacing: 10) {
-            TextField("Message…", text: $store.inputText, axis: .vertical)
+            TextField("Message…", text: $viewModel.inputText, axis: .vertical)
                 .lineLimit(1...5)
                 .padding(12)
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
 
-            if store.isGenerating {
-                Button { store.send(.cancelTapped) } label: {
+            if viewModel.isGenerating {
+                Button { viewModel.cancelTapped() } label: {
                     Image(systemName: "stop.circle.fill")
                         .font(.title2)
                         .foregroundStyle(.red.opacity(0.85))
                 }
             } else {
-                Button { store.send(.sendTapped) } label: {
+                Button { viewModel.sendTapped() } label: {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.title2)
                         .foregroundStyle(
-                            store.inputText.trimmingCharacters(in: .whitespaces).isEmpty
+                            viewModel.inputText.trimmingCharacters(in: .whitespaces).isEmpty
                                 ? AppTheme.accent.opacity(0.35)
                                 : AppTheme.accent
                         )
                 }
-                .disabled(store.inputText.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(viewModel.inputText.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
         .padding(.horizontal, 16)
