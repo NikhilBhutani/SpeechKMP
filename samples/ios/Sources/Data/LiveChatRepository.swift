@@ -28,7 +28,7 @@ private actor ChatSessionCache {
     private func getSession(for path: String) -> ChatSession {
         if currentPath == path, let s = session { return s }
         let s = DeviceAI.llm.chat(modelPath: path) {
-            $0.systemPrompt = "You are a helpful on-device AI assistant. Be concise."
+            $0.systemPrompt = ""
             $0.maxTokens    = 512
             $0.temperature  = 0.7
         }

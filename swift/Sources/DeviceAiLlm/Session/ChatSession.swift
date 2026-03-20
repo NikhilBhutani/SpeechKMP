@@ -146,7 +146,7 @@ public actor ChatSession {
 
     private func buildMessages(overrideConfig: ChatConfig?) -> [LlmMessage] {
         let cfg = overrideConfig ?? config
-        var messages: [LlmMessage] = [.system(cfg.systemPrompt)]
+        var messages: [LlmMessage] = cfg.systemPrompt.isEmpty ? [] : [.system(cfg.systemPrompt)]
         messages += history.map { LlmMessage(role: $0.role, content: $0.content) }
         return messages
     }
